@@ -23,7 +23,7 @@ export interface GroupStandings {
   rows: StandingRow[];
   /** Alle Partien der Gruppe (ohne Freilose) haben ein Ergebnis. */
   complete: boolean;
-  /** Teilmengen, die ein Stechen brauchen (nur Gleichstände, die einen Platz ≤ q berühren). */
+  /** Teilmengen, die ein Stechen brauchen (nur Gleichstände über die Grenze q). */
   needsPlayoff: TeamId[][];
 }
 
@@ -57,7 +57,7 @@ const groupBy = (teams: readonly TeamId[], score: (t: TeamId) => number): TeamId
   return groups;
 };
 
-const sameSet = (a: readonly TeamId[], b: readonly TeamId[]): boolean =>
+export const sameSet = (a: readonly TeamId[], b: readonly TeamId[]): boolean =>
   a.length === b.length && a.every((t) => b.includes(t));
 
 /**
@@ -117,7 +117,9 @@ export const computeStandings = (state: TournamentState, groupId: GroupId): Grou
   let next = 1;
   for (const block of blocks) {
     const teams = order.filter((t) => block.teamIds.includes(t));
-    if (teams.length > 1 && complete && next <= q) needsPlayoff.push(teams);
+    // Stechen nur, wenn der Gleichstand über die Grenze q geht (ein Teil käme weiter, ein Teil nicht).
+    const crossesCut = next <= q && next + teams.length - 1 > q;
+    if (teams.length > 1 && complete && crossesCut) needsPlayoff.push(teams);
     for (const teamId of teams) {
       const own = played.filter((p) => p.a === teamId || p.b === teamId);
       const wins = own.filter((p) => p.result.winnerTeamId === teamId);

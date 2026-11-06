@@ -166,9 +166,10 @@ type Res = EventOf<'ResultRecorded'>['payload'];
 /**
  * Spielt die ganze Gruppenphase per Ereignis ein. Gruppe A nach `a`:
  * 'circle' = T1>T2, T3>T1, T2>T3 (Kreis, je 3 Punkte) · 'draws' = alles Unentschieden ·
- * 'clear' = T1 gewinnt alles, T2 schlägt T3. Gruppe B: T4 schlägt T5.
+ * 'clear' = T1 gewinnt alles, T2 schlägt T3 · 'topTie' = T1–T2 unentschieden, beide schlagen T3
+ * (T1/T2 je 4 Punkte auf Platz 1–2). Gruppe B: T4 schlägt T5.
  */
-function groupStageDone(a: 'circle' | 'draws' | 'clear', opts: Opts = {}) {
+function groupStageDone(a: 'circle' | 'draws' | 'clear' | 'topTie', opts: Opts = {}) {
   const s = startedSession(opts);
   const cups = opts.trackCups === true;
   const win = (matchId: string, winner: string, winnerIsA: boolean): Res =>
@@ -186,16 +187,19 @@ function groupStageDone(a: 'circle' | 'draws' | 'clear', opts: Opts = {}) {
     circle: win('A-r1', 'T1', true),
     draws: draw('A-r1'),
     clear: win('A-r1', 'T1', true),
+    topTie: draw('A-r1'),
   };
   const resA2: Record<string, Res> = {
     circle: win('A-r2', 'T3', false),
     draws: draw('A-r2'),
     clear: win('A-r2', 'T1', true),
+    topTie: win('A-r2', 'T1', true),
   };
   const resA3: Record<string, Res> = {
     circle: win('A-r3', 'T2', true),
     draws: draw('A-r3'),
     clear: win('A-r3', 'T2', true),
+    topTie: win('A-r3', 'T2', true),
   };
   s.push('HeatStarted', { heatId: 'H-r1', durationMs: 900_000 });
   s.push('ResultRecorded', resA[a] as Res);
@@ -542,6 +546,30 @@ describe('M09: recordPlayoff (SPEC Stechen)', () => {
   ])('M09: %s → PLAYOFF_NOT_NEEDED', (_name, payload) => {
     const { s } = groupStageDone('circle');
     expectError(s.decide(rp(payload)), 'PLAYOFF_NOT_NEEDED');
+  });
+
+  it('M09: Gleichstand ganz innerhalb der Weiterkommenden (Platz 1–2, q = 2) → tied, kein needsPlayoff, recordPlayoff → PLAYOFF_NOT_NEEDED', () => {
+    const { s } = groupStageDone('topTie', { q: 2 });
+    const st = computeStandings(s.state, 'A');
+    expect(st.rows.map((r) => [r.teamId, r.rank, r.rankReason])).toEqual([
+      ['T1', 1, 'tied'],
+      ['T2', 1, 'tied'],
+      ['T3', 3, 'points'],
+    ]);
+    expect(st.needsPlayoff).toEqual([]);
+    expectError(
+      s.decide(rp({ groupId: 'A', tiedTeamIds: ['T1', 'T2'], winnerTeamId: 'T1' })),
+      'PLAYOFF_NOT_NEEDED',
+    );
+  });
+
+  it('M09: derselbe Gleichstand über die q-Grenze (q = 1) → Stechen nötig und zulässig', () => {
+    const { s } = groupStageDone('topTie', { q: 1 });
+    expect(playoffSets(s.state, 'A')).toEqual([['T1', 'T2']]);
+    expectSingle(
+      s.decide(rp({ groupId: 'A', tiedTeamIds: ['T2', 'T1'], winnerTeamId: 'T2' })),
+      'PlayoffRecorded',
+    );
   });
 
   it('M09: klare Gruppe ohne Gleichstand → PLAYOFF_NOT_NEEDED', () => {

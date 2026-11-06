@@ -25,12 +25,12 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [x] Timer-Mathematik + Warnstufen (M13, S03); klären: behält restartTimer eine vorherige Verlängerung?
 
 ## M4 server
-- [ ] Drizzle-Schema + Migration, Event-Store mit Transaktion
+- [ ] Drizzle-Schema + Migration, Event-Store mit Transaktion; ab hier geänderte Ereignis-Payloads nur mit neuer `v`-Nummer bzw. Upcaster (z. B. `TimerRestarted`)
 - [ ] Konfiguration (PORT/HOST/DATA_DIR) per Zod prüfen, klarer Abbruch bei ungültigen Werten; verständlicher Fehler, wenn das better-sqlite3-Binding fehlt
 - [ ] SQLite-Pragmas beim Öffnen: WAL, synchronous NORMAL, foreign_keys (R6)
 - [ ] Login (scrypt, Cookie) (M17)
 - [ ] WebSocket-Hub, Protokoll, Command-Handler (leere Ereignisliste aus decide: kein Append, keine neue Version, nur ack)
-- [ ] Wiederherstellung nach Neustart inkl. Timer-Planung (N03)
+- [ ] Wiederherstellung nach Neustart inkl. Timer-Planung (N03); Scheduler nach jedem Timer-Befehl aus `upcomingAlarms` neu planen – eine Schwelle, die genau der Restzeit entspricht, wird dort nicht geliefert und muss beim Fortsetzen ggf. sofort gemeldet werden
 - [ ] Export JSON (S07)
 
 ## M5 web – Grundlage
@@ -41,7 +41,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 ## M6 web – Admin
 - [ ] Login, Turnierliste (M01)
 - [ ] Teams + Spieler, Tischanzahl (M02, M03)
-- [ ] Gruppen-Panel mit Drag-and-drop + „Zufällig“ (M05)
+- [ ] Gruppen-Panel mit Drag-and-drop + „Zufällig“ (M05); verständliche Texte für Startfehler (`TEAMS_UNASSIGNED`, `GROUP_TOO_SMALL`, `INVALID_ADVANCERS` inkl. „mehr als 64 KO-Teams“ bei Standard-q, `TOO_MANY_TEAMS`)
 - [ ] Spielplan, Durchgang starten, Tische tauschen (M15, M16)
 - [ ] Timer-Steuerung (M13)
 - [ ] Ergebniseingabe ≤ 2 Klicks, optional Becher; nur für Partien gestarteter Durchgänge anbieten (M07, S01, N08)

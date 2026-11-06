@@ -98,7 +98,7 @@ Tiebreaker bei Punktgleichheit von n Teams:
 
 `rankReason` ∈ `points | headToHead | cupDiff | playoff | tied`.
 
-- Ein Stechen (`needsPlayoff`) ist nur nötig, wenn der unaufgelöste Gleichstand einen Platz ≤ q (Weiterkommende) berührt. Gleichstände dahinter teilen sich den Platz mit `rankReason: 'tied'`.
+- Ein Stechen (`needsPlayoff`) ist nur nötig, wenn der unaufgelöste Gleichstand über die Grenze q (Weiterkommende) geht, also ein Teil der Teams weiterkäme und ein Teil nicht. Gleichstände ganz innerhalb oder ganz hinter den Weiterkommenden teilen sich den Platz mit `rankReason: 'tied'`; für die KO-Setzung gilt bei geteiltem Platz die Reihenfolge der Gruppe (Reihenfolge des Hinzufügens).
 
 **Stechen**
 

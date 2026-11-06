@@ -3,10 +3,7 @@ import type { CommandOf } from '../commands/index.js';
 import type { DecideContext, TournamentState } from '../domain/types.js';
 import type { EventOf } from '../events/index.js';
 import { event, fail, started, type Decision } from '../decision.js';
-import { computeStandings } from './standings.js';
-
-const sameSet = (a: readonly string[], b: readonly string[]): boolean =>
-  a.length === b.length && a.every((t) => b.includes(t));
+import { computeStandings, sameSet } from './standings.js';
 
 /** M07, M14, S01, SPEC → Ergebnis-Payload. */
 export const recordResult = (

@@ -1,4 +1,4 @@
-import type { Heat, HeatId, KoStage, Match, Phase, TournamentState } from '../domain/types.js';
+import type { Heat, HeatId, Match, Phase, TournamentState } from '../domain/types.js';
 
 /**
  * M15: Partien (ohne Freilose, in gegebener Reihenfolge) zu Durchgängen à tableCount bündeln.
@@ -57,5 +57,5 @@ export const nextHeat = (state: TournamentState): Heat | null => {
 };
 
 /** Zeitlimit eines Durchgangs dieser Phase aus settings.timerByPhase (M12). */
-export const durationForPhase = (state: TournamentState, phase: Phase | KoStage): number | null =>
+export const durationForPhase = (state: TournamentState, phase: Phase): number | null =>
   state.settings.timerByPhase[phase];

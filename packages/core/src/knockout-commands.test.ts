@@ -6,6 +6,7 @@ import {
   DEFAULT_SETTINGS,
   DomainEventSchema,
   buildBracket,
+  computeStandings,
   crossSeeding,
   decide,
   drawKnockout,
@@ -1130,5 +1131,104 @@ describe('S04: Spiel um Platz 3 nur mit zwei echten Halbfinals (Nutzerentscheidu
   it('S04: koOnly mit 4 Teams und Platz 3 → Platz 3 vorhanden (Gegenprobe)', () => {
     const { started } = koOnlyStarted(4, { settings: { thirdPlaceMatch: true } });
     expect(started.payload.matches.filter((m) => m.phase === 'thirdPlace')).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gleichstand ganz innerhalb der Weiterkommenden (SPEC → Tabelle, Nutzerentscheidung)
+// ---------------------------------------------------------------------------
+
+/** Ergebnisse nach Tabelle `beats` (Sieger zuerst) bzw. `draws`; alles andere nach `rest`. */
+const scripted =
+  (beats: [string, string][], draws: [string, string][], rest: Pick): Pick =>
+  (a, b) => {
+    const is = ([x, y]: [string, string]) => (a === x && b === y) || (a === y && b === x);
+    const win = beats.find(is);
+    if (win) return { outcome: 'win', winnerTeamId: win[0] };
+    if (draws.some(is)) return { outcome: 'draw' };
+    return rest(a, b);
+  };
+
+describe('M09/M10: Gleichstand innerhalb von q → kein Stechen, Setzung nach Gruppenreihenfolge', () => {
+  it('M09: Gleichstand um Platz 1–2 bei q=2 → advancePhase ohne Stechen; A1 = früher hinzugefügtes Team', () => {
+    const f = setup({ pattern: 'AAAABBBB' });
+    const [a0, a1, a2, a3] = f.groups['A'] as [string, string, string, string];
+    // a0 und a1 spielen remis und schlagen beide a2 und a3 → je 7 Punkte, direkter Vergleich remis
+    const pick = scripted(
+      [
+        [a0, a2],
+        [a0, a3],
+        [a1, a2],
+        [a1, a3],
+        [a2, a3],
+      ],
+      [[a0, a1]],
+      byOrder(f.ids),
+    );
+    f.s.one({ type: 'startTournament' }, 'TournamentStarted');
+    f.s.playPhase(isGroupHeat, pick);
+    const st = computeStandings(f.s.state, 'A');
+    expect(st.needsPlayoff).toEqual([]);
+    expect(st.rows.slice(0, 2).map((r) => [r.teamId, r.rank, r.rankReason])).toEqual([
+      [a0, 1, 'tied'],
+      [a1, 1, 'tied'],
+    ]);
+    const pa = advance(f);
+    const [b0, b1] = f.groups['B'] as [string, string];
+    expect(byStage(pa.payload.matches, 'semifinal').map(pairingOf)).toEqual([
+      [a0, b1],
+      [b0, a1],
+    ]);
+  });
+
+  it('M09: Gleichstand um Platz 1–2 der später hinzugefügten Teams (a2, a3) → A1 = a2, A2 = a3', () => {
+    const f = setup({ pattern: 'AAAABBBB' });
+    const [a0, a1, a2, a3] = f.groups['A'] as [string, string, string, string];
+    const pick = scripted(
+      [
+        [a2, a0],
+        [a2, a1],
+        [a3, a0],
+        [a3, a1],
+        [a0, a1],
+      ],
+      [[a2, a3]],
+      byOrder(f.ids),
+    );
+    f.s.one({ type: 'startTournament' }, 'TournamentStarted');
+    f.s.playPhase(isGroupHeat, pick);
+    const pa = advance(f);
+    const [b0, b1] = f.groups['B'] as [string, string];
+    expect(byStage(pa.payload.matches, 'semifinal').map(pairingOf)).toEqual([
+      [a2, b1],
+      [b0, a3],
+    ]);
+  });
+
+  it('M09: Kreis dreier Teams ganz innerhalb von q=4 → kein Stechen; A1/A2/A3 nach Gruppenreihenfolge', () => {
+    const f = setup({ pattern: 'AAAABBBB', settings: { advancersPerGroup: 4 } });
+    const [x, y, z, w] = f.groups['A'] as [string, string, string, string];
+    // Kreis x > y > z > x, alle schlagen w → je 6 Punkte, Mini-Tabelle je 3
+    const pick = circle([x, y, z], byOrder(f.ids));
+    f.s.one({ type: 'startTournament' }, 'TournamentStarted');
+    f.s.playPhase(isGroupHeat, pick);
+    expect(computeStandings(f.s.state, 'A').needsPlayoff).toEqual([]);
+    const pa = advance(f);
+    const g = (id: string, rank: number) => at(f.groups[id] ?? [], rank - 1);
+    // Setzung 2 Gruppen, q=4: A1–B4, A3–B2, B1–A4, B3–A2
+    expect(byStage(pa.payload.matches, 'quarterfinal').map(pairingOf)).toEqual([
+      [x, g('B', 4)],
+      [z, g('B', 2)],
+      [g('B', 1), w],
+      [g('B', 3), y],
+    ]);
+  });
+
+  it('M09: Kreis dreier Teams über die Grenze q=2 (Plätze 1–3) → PLAYOFF_REQUIRED', () => {
+    const f = setup({ pattern: 'AAAABBBB' });
+    const [x, y, z] = f.groups['A'] as [string, string, string];
+    f.s.one({ type: 'startTournament' }, 'TournamentStarted');
+    f.s.playPhase(isGroupHeat, circle([x, y, z], byOrder(f.ids)));
+    f.s.expectError({ type: 'advancePhase' }, 'PLAYOFF_REQUIRED');
   });
 });

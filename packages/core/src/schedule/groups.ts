@@ -1,4 +1,5 @@
 import { groupIds } from '../domain/settings.js';
+import { shuffle } from '../domain/shuffle.js';
 import type { Group, GroupId, Heat, Match, TeamId } from '../domain/types.js';
 import { buildHeats } from './heats.js';
 import { roundRobin } from './round-robin.js';
@@ -13,12 +14,7 @@ export const randomGroupAssignment = (
   groupCount: number,
   random: () => number,
 ): Record<TeamId, GroupId> => {
-  const shuffled = [...teamIds];
-  // Fisher-Yates
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.min(i, Math.floor(random() * (i + 1)));
-    [shuffled[i], shuffled[j]] = [shuffled[j] as TeamId, shuffled[i] as TeamId];
-  }
+  const shuffled = shuffle(teamIds, random);
   const ids = groupIds(groupCount);
   return Object.fromEntries(shuffled.map((t, i) => [t, ids[i % groupCount] as GroupId]));
 };

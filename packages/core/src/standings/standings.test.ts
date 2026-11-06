@@ -485,15 +485,50 @@ describe('M09: direkter Vergleich (Mini-Tabelle)', () => {
     for (const r of s.rows) expect(r.played).toBe(4);
   });
 
-  it('M09: Unentschieden im direkten Vergleich ohne Becher → needsPlayoff, geteilter Platz tied', () => {
-    const f = G4();
+  /** T1/T2 7 Punkte, direkter Vergleich unentschieden; T3 3, T4 0. */
+  const topDraw = (q: number) => {
+    const f = G4(q);
     f.result('T1', 'T2', 'draw');
     f.result('T1', 'T3', 'win', 'T1');
     f.result('T1', 'T4', 'win', 'T1');
     f.result('T2', 'T3', 'win', 'T2');
     f.result('T2', 'T4', 'win', 'T2');
     f.result('T3', 'T4', 'win', 'T3');
+    return f;
+  };
+
+  it('M09: Gleichstand ganz innerhalb der Weiterkommenden (Platz 1–2, q = 2) → tied, geteilter Rang, kein needsPlayoff', () => {
+    const s = topDraw(2).standings('A');
+    expect(ranking(s)).toEqual([
+      ['T1', 1, 'tied'],
+      ['T2', 1, 'tied'],
+      ['T3', 3, 'points'],
+      ['T4', 4, 'points'],
+    ]);
+    expect(s.needsPlayoff).toEqual([]);
+    expect(s.complete).toBe(true);
+  });
+
+  it('M09: Kreis aller drei auf Platz 1–3 bei q = 4 (alle kommen weiter) → tied, kein needsPlayoff', () => {
+    const f = G4(4);
+    f.result('T1', 'T2', 'win', 'T1');
+    f.result('T2', 'T3', 'win', 'T2');
+    f.result('T3', 'T1', 'win', 'T3');
+    f.result('T1', 'T4', 'win', 'T1');
+    f.result('T2', 'T4', 'win', 'T2');
+    f.result('T3', 'T4', 'win', 'T3');
     const s = f.standings('A');
+    expect(ranking(s)).toEqual([
+      ['T1', 1, 'tied'],
+      ['T2', 1, 'tied'],
+      ['T3', 1, 'tied'],
+      ['T4', 4, 'points'],
+    ]);
+    expect(s.needsPlayoff).toEqual([]);
+  });
+
+  it('M09: Unentschieden im direkten Vergleich ohne Becher über die q-Grenze (Platz 1–2, q = 1) → needsPlayoff, geteilter Platz tied', () => {
+    const s = topDraw(1).standings('A');
     expect(points(s)).toEqual({ T1: 7, T2: 7, T3: 3, T4: 0 });
     expect(ranking(s)).toEqual([
       ['T1', 1, 'tied'],
