@@ -60,6 +60,10 @@ export default tseslint.config(
         'setTimeout',
         'setInterval',
         'crypto',
+        'performance',
+        'globalThis',
+        'require',
+        'queueMicrotask',
       ],
       'no-restricted-syntax': [
         'error',

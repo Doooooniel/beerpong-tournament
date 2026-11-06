@@ -26,6 +26,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 
 ## M4 server
 - [ ] Drizzle-Schema + Migration, Event-Store mit Transaktion
+- [ ] Konfiguration (PORT/HOST/DATA_DIR) per Zod prüfen, klarer Abbruch bei ungültigen Werten; verständlicher Fehler, wenn das better-sqlite3-Binding fehlt
 - [ ] SQLite-Pragmas beim Öffnen: WAL, synchronous NORMAL, foreign_keys (R6)
 - [ ] Login (scrypt, Cookie) (M17)
 - [ ] WebSocket-Hub, Protokoll, Command-Handler
@@ -61,5 +62,5 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 ## M8 Abschluss
 - [ ] Playwright: Gruppen + KO, nur KO
 - [ ] README für Veranstalter inkl. Checkliste vor dem Turnier: Energiesparen aus, Export als Sicherung, Ton freigeben (R1, R2, R6)
-- [ ] README: Build-Tools für `better-sqlite3` je Betriebssystem, falls kein vorgebautes Paket passt (R5)
+- [ ] README: Build-Tools für `better-sqlite3` je Betriebssystem, falls kein vorgebautes Paket passt; `allowScripts.better-sqlite3: false` erklären und manuellen Weg `npm rebuild better-sqlite3` nennen (R5)
 - [ ] Performance-Check 64 Teams / 16 Tische (N06)

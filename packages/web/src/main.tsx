@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router';
 import { App } from './App.js';
 
 const root = document.getElementById('root');
-if (!root) throw new Error('#root fehlt');
+if (!root) throw new Error('#root missing');
 
 createRoot(root).render(
   <StrictMode>
