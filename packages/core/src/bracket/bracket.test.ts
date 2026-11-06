@@ -543,3 +543,43 @@ describe('buildBracket – Struktur aller Stufen (M11, ADR 025)', () => {
     expect(first).toEqual(copy);
   });
 });
+
+describe('buildBracket – Platz 3 nur mit zwei echten Halbfinals (S04, Nutzerentscheidung)', () => {
+  it.each<[string, [Slot, Slot][]]>([
+    [
+      'Freilos in HF 1',
+      [
+        [team('t1'), null],
+        [team('t2'), team('t3')],
+      ],
+    ],
+    [
+      'Freilos in HF 2',
+      [
+        [team('t1'), team('t2')],
+        [null, team('t3')],
+      ],
+    ],
+  ])('S04: %s, thirdPlace true → keine Partie thirdPlace', (_name, first) => {
+    const matches = buildBracket(first, true);
+    expect(matches.some((m) => m.phase === 'thirdPlace')).toBe(false);
+    expect(matches).toHaveLength(3);
+    expect(byStage(matches, 'semifinal').filter((m) => m.bye)).toHaveLength(1);
+  });
+
+  it('S04: Freilose nur im Viertelfinale (Halbfinals echte Partien) → Platz 3 vorhanden', () => {
+    const first: [Slot, Slot][] = [
+      [team('t1'), null],
+      [team('t2'), team('t3')],
+      [null, team('t4')],
+      [team('t5'), null],
+    ];
+    const matches = buildBracket(first, true);
+    const [sf1, sf2] = byStage(matches, 'semifinal') as [Match, Match];
+    expect(sf1.bye || sf2.bye).toBe(false);
+    const p3 = byStage(matches, 'thirdPlace');
+    expect(p3).toHaveLength(1);
+    expect(p3[0]?.a).toEqual({ loserOf: sf1.id });
+    expect(p3[0]?.b).toEqual({ loserOf: sf2.id });
+  });
+});

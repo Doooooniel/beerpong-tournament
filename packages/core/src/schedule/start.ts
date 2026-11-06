@@ -1,6 +1,6 @@
 import { groupIds } from '../domain/settings.js';
 import type { DecideContext, Group, TournamentState } from '../domain/types.js';
-import { startKnockoutOnly } from '../bracket/commands.js';
+import { MAX_KNOCKOUT_TEAMS, startKnockoutOnly } from '../bracket/commands.js';
 import { event, fail, notStarted, type Decision } from '../decision.js';
 import { buildGroupStage, defaultAdvancers, randomGroupAssignment } from './groups.js';
 
@@ -28,8 +28,12 @@ const startGroups = (state: TournamentState, ctx: DecideContext): Decision => {
   const smallest = Math.min(...groups.map((g) => g.teamIds.length));
   if (smallest < 2) return fail('GROUP_TOO_SMALL', 'Every group needs at least 2 teams.');
   const q = state.settings.advancersPerGroup ?? defaultAdvancers(smallest);
-  if (!isPowerOfTwo(q) || q > smallest || groups.length * q < 2)
-    return fail('INVALID_ADVANCERS', 'Advancers must be a power of two ≤ smallest group.');
+  const knockoutTeams = groups.length * q;
+  if (!isPowerOfTwo(q) || q > smallest || knockoutTeams < 2 || knockoutTeams > MAX_KNOCKOUT_TEAMS)
+    return fail(
+      'INVALID_ADVANCERS',
+      'Advancers must be a power of two ≤ smallest group, 2..64 in total.',
+    );
   const { matches, heats } = buildGroupStage(groups, state.tableCount);
   return event(ctx, 'TournamentStarted', { groups, advancersPerGroup: q, matches, heats });
 };

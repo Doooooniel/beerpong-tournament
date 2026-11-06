@@ -93,7 +93,7 @@ Sortierung: Punkte desc → Tiebreaker-Kette. Tabellenzeile enthält `played, wi
 
 Tiebreaker bei Punktgleichheit von n Teams:
 1. Mini-Tabelle nur aus Partien dieser n Teams (Punkte). Löst sie teilweise, Rest rekursiv erneut ab Schritt 1.
-2. Becherdifferenz (gesamt) – nur wenn `settings.trackCups`.
+2. Becherdifferenz (gesamt) – nur wenn `settings.trackCups`. Trennt sie teilweise, werden die Rest-Teilmengen wieder ab Schritt 1 bewertet.
 3. Sonst `needsPlayoff` – Gruppe ist nicht abgeschlossen, bis ein Stechen-Ergebnis vorliegt.
 
 `rankReason` ∈ `points | headToHead | cupDiff | playoff | tied`.
@@ -135,11 +135,12 @@ PlayoffRecorded.payload = { groupId: string, tiedTeamIds: string[], winnerTeamId
 
 ### KO
 
-- Teilnehmer = Gruppen × Weiterkommende (muss 2^k sein) bzw. alle Teams bei Nur-KO.
+- Teilnehmer = Gruppen × Weiterkommende (muss 2^k sein) bzw. alle Teams bei Nur-KO; höchstens 64 (N06). Mehr ergibt `INVALID_ADVANCERS` bzw. bei Nur-KO `TOO_MANY_TEAMS`.
+- Spiel um Platz 3 nur bei zwei echten Halbfinals (nicht bei 2 KO-Teams oder Freilos im Halbfinale).
 - **Setzregel (deterministisch, ohne Zufall):**
   1. Gruppen in Reihenfolge A, B, C, … zu Paaren (A,B), (C,D), … zusammenfassen. Bei einer einzelnen Gruppe entfällt das Paaren.
-  2. Innerhalb eines Paares (X,Y) mit `q` Weiterkommenden entstehen genau `q` Partien: `Xk – Y(q+1−k)` für `k = 1..q` (für `q = 1` also `X1 – Y1`). Einzelne Gruppe mit `q` Teams: `Pk – P(q+1−k)` für `k = 1..q/2`.
-  3. Baumreihenfolge: Partien so auf die Baumplätze verteilen, dass Teams derselben Gruppe möglichst spät aufeinandertreffen. (A,B)-Partien oben, (C,D)-Partien unten usw.; Platz 1 und 2 derselben Gruppe liegen in gegenüberliegenden Baumhälften.
+  2. Innerhalb eines Paares (X,Y) mit `q` Weiterkommenden entstehen genau `q` Partien: `Xk – Y(q+1−k)` für `k = 1..q` (für `q = 1` also `X1 – Y1`). Einzelne Gruppe mit `q` Teams: `Pk – P(q+1−k)` für `k = 1..q/2`, in Reihenfolge der Standard-Setzliste (q=8: `P1–P8, P4–P5, P2–P7, P3–P6`).
+  3. Baumreihenfolge: Partien so auf die Baumplätze verteilen, dass Teams derselben Gruppe möglichst spät aufeinandertreffen. Innerhalb eines Paares stehen die Partien mit ungeradem k oben, die gespiegelten unten; mehrere Paare werden partieweise verzahnt (Partie 1 von (A,B), Partie 1 von (C,D), …, Partie 2 von (A,B), …). Platz 1 und 2 derselben Gruppe liegen in gegenüberliegenden Baumhälften.
   - Verbindliche Beispiele: 2 Gruppen, q=2: `A1–B2`, `B1–A2`. · 4 Gruppen, q=2: `A1–B2`, `C1–D2`, `B1–A2`, `D1–C2`. · 2 Gruppen, q=4: `A1–B4`, `A3–B2`, `B1–A4`, `B3–A2`. · 8 Gruppen, q=1: `A1–B1`, `C1–D1`, `E1–F1`, `G1–H1`. · 1 Gruppe, q=4: `P1–P4`, `P2–P3`.
 - `PhaseAdvanced` (bei Nur-KO `TournamentStarted`) enthält den vollständigen Baum aller Stufen. Spätere Partien verweisen auf ihre Quellen (`winnerOf: matchId`, bei Platz 3 `loserOf: matchId`).
 - Eine KO-Partie ist spielbar, sobald beide Quellen ein Ergebnis haben. Die Durchgänge aller KO-Stufen stehen vollständig im erzeugenden Ereignis (`PhaseAdvanced` bzw. bei Nur-KO `TournamentStarted`), Reihenfolge Stufe für Stufe, Platz 3 vor dem Finale; die Tischanzahl ist ab Start gesperrt. Freilos-Partien belegen keinen Tisch. Ein Freilos-Gewinner gilt sofort als Sieger. `TablesSwapped` wirkt als Überschreibung der Zuordnung.

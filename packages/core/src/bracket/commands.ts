@@ -4,6 +4,9 @@ import { buildHeats } from '../schedule/heats.js';
 import { computeStandings } from '../standings/standings.js';
 import { buildBracket, crossSeeding, drawKnockout } from './bracket.js';
 
+/** SPEC → KO: höchstens 64 KO-Teilnehmer (größte Stufe ko64, N06). */
+export const MAX_KNOCKOUT_TEAMS = 64;
+
 /** Alle KO-Durchgänge, Stufe für Stufe in Baumreihenfolge (Platz 3 vor Finale), SPEC → KO. */
 export const knockoutHeats = (matches: readonly Match[], tableCount: number): Heat[] => {
   const stages = [...new Set(matches.map((m) => m.phase))];
@@ -44,6 +47,8 @@ export const advancePhase = (state: TournamentState, ctx: DecideContext): Decisi
 /** M04 Nur-KO: komplette Losung, Freilose zufällig (Ergebnis im Ereignis, Regel 4). */
 export const startKnockoutOnly = (state: TournamentState, ctx: DecideContext): Decision => {
   if (state.teams.length < 2) return fail('NOT_ENOUGH_TEAMS', 'At least 2 teams are needed.');
+  if (state.teams.length > MAX_KNOCKOUT_TEAMS)
+    return fail('TOO_MANY_TEAMS', `At most ${MAX_KNOCKOUT_TEAMS} teams in the knockout.`);
   const draw = drawKnockout(
     state.teams.map((t) => t.id),
     ctx.random,

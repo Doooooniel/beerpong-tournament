@@ -1022,3 +1022,113 @@ describe('Komplette Durchläufe bis zum Finale (M04, M11, M14, M16, S04)', () =>
     for (const h of f.s.state.heats) expect(heatStatus(f.s.state, h.id)).toBe('finished');
   });
 });
+
+// ---------------------------------------------------------------------------
+// KO-Grenze 64 Teams (N06, Nutzerentscheidung) und Platz 3 nur mit zwei echten Halbfinals (S04)
+// ---------------------------------------------------------------------------
+
+/** Wie setup, aber mit beliebig vielen Teams (eigene Namen, > 64 möglich). */
+const bigSetup = (opts: { n?: number; pattern?: string; settings: SettingsPatch }): Fixture => {
+  const s = new Session();
+  s.one(
+    { type: 'createTournament', name: 'Großturnier', settings: opts.settings },
+    'TournamentCreated',
+  );
+  s.one({ type: 'setTableCount', tableCount: 16 }, 'TableCountSet');
+  const n = opts.pattern?.length ?? opts.n ?? 0;
+  const ids = Array.from(
+    { length: n },
+    (_, i) =>
+      s.one(
+        { type: 'addTeam', name: `Team ${String(i + 1).padStart(3, '0')}`, players: ['P'] },
+        'TeamAdded',
+      ).payload.teamId,
+  );
+  const groups: Record<string, string[]> = {};
+  [...(opts.pattern ?? '')].forEach((g, i) => {
+    const teamId = at(ids, i);
+    s.one({ type: 'assignTeamToGroup', teamId, groupId: g }, 'TeamAssignedToGroup');
+    (groups[g] ??= []).push(teamId);
+  });
+  return { s, ids, groups };
+};
+
+/** 'A'×size + 'B'×size + … für `count` Gruppen. */
+const groupPattern = (count: number, size: number): string =>
+  'ABCDEFGHIJKLMNOP'
+    .slice(0, count)
+    .split('')
+    .map((g) => g.repeat(size))
+    .join('');
+
+describe('KO-Grenze 64 Teams (N06, M04, M10 – Nutzerentscheidung)', () => {
+  it.each([65, 70])('N06/M04: koOnly mit %i Teams → TOO_MANY_TEAMS', (n) => {
+    const { s } = bigSetup({ n, settings: { mode: 'koOnly' } });
+    const r = s.decide({ type: 'startTournament' });
+    if (r.ok) throw new Error('erwartet TOO_MANY_TEAMS, erhalten Ereignisse');
+    expect(String(r.error.code)).toBe('TOO_MANY_TEAMS');
+    expect(r.error.message.length).toBeGreaterThan(0);
+  });
+
+  it('N06/M04: koOnly mit genau 64 Teams bleibt erlaubt (Grenzfall)', () => {
+    const { s } = bigSetup({ n: 64, settings: { mode: 'koOnly' } });
+    const started = s.one({ type: 'startTournament' }, 'TournamentStarted');
+    expect(byStage(started.payload.matches, 'ko64')).toHaveLength(32);
+  });
+
+  it('N06/M10: groupsKo, 16 Gruppen à 8, advancersPerGroup 8 → 128 KO-Teams → INVALID_ADVANCERS', () => {
+    const { s } = bigSetup({
+      pattern: groupPattern(16, 8),
+      settings: { groupCount: 16, advancersPerGroup: 8 },
+    });
+    s.expectError({ type: 'startTournament' }, 'INVALID_ADVANCERS');
+  });
+
+  it('N06/M10: groupsKo, 8 Gruppen à 16, advancersPerGroup 16 → 128 KO-Teams → INVALID_ADVANCERS', () => {
+    const { s } = bigSetup({
+      pattern: groupPattern(8, 16),
+      settings: { groupCount: 8, advancersPerGroup: 16 },
+    });
+    s.expectError({ type: 'startTournament' }, 'INVALID_ADVANCERS');
+  });
+
+  it.each<[number, number, number]>([
+    [16, 4, 4],
+    [8, 8, 8],
+    [16, 8, 4],
+  ])(
+    'N06/M10: groupsKo, %i Gruppen à %i, advancersPerGroup %i → Gruppen × q = 64 erlaubt (Grenzfall)',
+    (count, size, q) => {
+      const { s } = bigSetup({
+        pattern: groupPattern(count, size),
+        settings: { groupCount: count as Settings['groupCount'], advancersPerGroup: q },
+      });
+      const started = s.one({ type: 'startTournament' }, 'TournamentStarted');
+      expect(started.payload.advancersPerGroup).toBe(q);
+      expect(started.payload.groups).toHaveLength(count);
+    },
+  );
+});
+
+describe('S04: Spiel um Platz 3 nur mit zwei echten Halbfinals (Nutzerentscheidung)', () => {
+  it('S04: koOnly mit 3 Teams und thirdPlaceMatch → keine Partie und kein Durchgang thirdPlace', () => {
+    const { started } = koOnlyStarted(3, { settings: { thirdPlaceMatch: true } });
+    expect(started.payload.matches.some((m) => m.phase === 'thirdPlace')).toBe(false);
+    expect(started.payload.heats.some((h) => h.phase === 'thirdPlace')).toBe(false);
+    expect(byStage(started.payload.matches, 'semifinal').filter((m) => m.bye)).toHaveLength(1);
+    expect(started.payload.heats.map((h) => h.phase)).toEqual(['semifinal', 'final']);
+  });
+
+  it('S04: koOnly mit 3 Teams und Platz 3 – Durchlauf bis zum Finale ohne Platz 3', () => {
+    const { s, ids } = koOnlyStarted(3, { settings: { thirdPlaceMatch: true } });
+    s.playPhase(isKoHeat, byOrder(ids));
+    const [fin] = byStage(s.state.matches, 'final') as [Match];
+    expect(winnerOf(s.state, fin.id)).not.toBeNull();
+    for (const h of s.state.heats) expect(heatStatus(s.state, h.id)).toBe('finished');
+  });
+
+  it('S04: koOnly mit 4 Teams und Platz 3 → Platz 3 vorhanden (Gegenprobe)', () => {
+    const { started } = koOnlyStarted(4, { settings: { thirdPlaceMatch: true } });
+    expect(started.payload.matches.filter((m) => m.phase === 'thirdPlace')).toHaveLength(1);
+  });
+});
