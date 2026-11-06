@@ -1,12 +1,9 @@
-import { fileURLToPath } from 'node:url';
+import { defaultServerConditions } from 'vite';
 import { defineProject } from 'vitest/config';
 
 export default defineProject({
-  resolve: {
-    alias: {
-      '@bierpong/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
-    },
-  },
+  // `source` zeigt auf core/src (siehe exports in packages/core/package.json).
+  ssr: { resolve: { conditions: ['source', ...defaultServerConditions] } },
   test: {
     name: 'server',
     environment: 'node',

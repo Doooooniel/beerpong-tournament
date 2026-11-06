@@ -1,5 +1,5 @@
 // Startet Server (tsx watch) und Vite parallel; beendet beide gemeinsam.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const tasks = [
   ['server', 'npm run dev -w @bierpong/server'],
@@ -10,7 +10,13 @@ let stopping = false;
 const shutdown = (code) => {
   if (stopping) return;
   stopping = true;
-  for (const child of children) child.kill();
+  for (const child of children) {
+    if (child.exitCode !== null || child.pid === undefined) continue;
+    // Unter Windows trifft kill() nur die cmd-Shell; /T beendet auch Vite bzw. tsx darunter.
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    } else child.kill();
+  }
   process.exitCode = code;
 };
 

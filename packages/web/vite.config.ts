@@ -1,14 +1,11 @@
-import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
+import { defaultClientConditions } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@bierpong/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
-    },
-  },
+  // `source` zeigt auf core/src (siehe exports in packages/core/package.json).
+  resolve: { conditions: ['source', ...defaultClientConditions] },
   server: {
     port: 5173,
     proxy: {
