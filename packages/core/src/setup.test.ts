@@ -477,6 +477,41 @@ describe('updateSettings (ADR 026, Festlegung 4)', () => {
     expect(state.groupAssignment).toEqual(before.groupAssignment);
     expect(Object.keys(state.groupAssignment)).toHaveLength(ids.length);
   });
+
+  it.each<{ phase: string; fixture: () => Fixture; settings: SettingsPatch }>([
+    { phase: 'setup', fixture: setupFixture, settings: {} },
+    { phase: 'setup', fixture: setupFixture, settings: { timerByPhase: {} } },
+    { phase: 'groups', fixture: groupsFixture, settings: {} },
+    { phase: 'groups', fixture: groupsFixture, settings: { timerByPhase: {} } },
+    { phase: 'knockout', fixture: knockoutFixture, settings: {} },
+    { phase: 'knockout', fixture: knockoutFixture, settings: { timerByPhase: {} } },
+  ])(
+    'M20: leerer Patch $settings in Phase $phase erzeugt kein Ereignis, Zustand unverändert',
+    ({ fixture, settings }) => {
+      const { state } = fixture();
+      const before = JSON.stringify(state);
+      const result = decide(state, { type: 'updateSettings', settings }, ctx());
+      expect(result).toEqual({ ok: true, value: [] });
+      expect(JSON.stringify(state)).toBe(before);
+    },
+  );
+
+  it.each([
+    { phase: 'setup', fixture: setupFixture },
+    { phase: 'groups', fixture: groupsFixture },
+    { phase: 'knockout', fixture: knockoutFixture },
+  ])(
+    'M20/M12: nicht leerer timerByPhase-Patch in Phase $phase → genau ein SettingsUpdated',
+    ({ fixture }) => {
+      const { state: before } = fixture();
+      const settings: SettingsPatch = { timerByPhase: { group: 600_000 } };
+      const { state, events } = run(before, { type: 'updateSettings', settings });
+      expect(single(events, 'SettingsUpdated').payload.settings).toEqual(settings);
+      expect(state.version).toBe(before.version + 1);
+      expect(state.log).toHaveLength(before.log.length + 1);
+      expect(state.settings.timerByPhase.group).toBe(600_000);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

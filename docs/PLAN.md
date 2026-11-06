@@ -29,7 +29,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [ ] Konfiguration (PORT/HOST/DATA_DIR) per Zod prüfen, klarer Abbruch bei ungültigen Werten; verständlicher Fehler, wenn das better-sqlite3-Binding fehlt
 - [ ] SQLite-Pragmas beim Öffnen: WAL, synchronous NORMAL, foreign_keys (R6)
 - [ ] Login (scrypt, Cookie) (M17)
-- [ ] WebSocket-Hub, Protokoll, Command-Handler
+- [ ] WebSocket-Hub, Protokoll, Command-Handler (leere Ereignisliste aus decide: kein Append, keine neue Version, nur ack)
 - [ ] Wiederherstellung nach Neustart inkl. Timer-Planung (N03)
 - [ ] Export JSON (S07)
 
@@ -46,7 +46,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [ ] Timer-Steuerung (M13)
 - [ ] Ergebniseingabe ≤ 2 Klicks, optional Becher; nur für Partien gestarteter Durchgänge anbieten (M07, S01, N08)
 - [ ] Stechen erfassen (M09)
-- [ ] Protokoll + gezieltes Rückgängig (M19, M20)
+- [ ] Protokoll + gezieltes Rückgängig (M19, M20); alter/neuer Wert je Eintrag, Hinweis wenn ein Undo von groupCount Zuteilungen verwirft
 - [ ] Beamer-Steuerung: Modus, Ansicht, Intervall (S06)
 - [ ] Einstellungen
 

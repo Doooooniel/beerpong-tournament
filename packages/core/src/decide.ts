@@ -53,7 +53,10 @@ const updateSettings = (
     ...(state.phase === 'knockout' ? (['thirdPlaceMatch'] as const) : []),
   ].filter((key) => patch[key] !== undefined);
   if (locked.length > 0) return fail('SETTING_LOCKED', `Locked settings: ${locked.join(', ')}.`);
-  const empty = Object.values(patch).every((v) => v === undefined);
+  const { timerByPhase, ...rest } = patch;
+  const empty =
+    Object.values(rest).every((v) => v === undefined) &&
+    Object.values(timerByPhase ?? {}).every((v) => v === undefined);
   // Leerer Patch: kein Ereignis, damit das Protokoll keine leeren Einträge bekommt (M20).
   if (empty) return ok([]);
   return event(ctx, 'SettingsUpdated', { settings: patch });
