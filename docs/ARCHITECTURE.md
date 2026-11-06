@@ -26,10 +26,11 @@ packages/core/src/
   decide.ts      decide(state, command, ctx) → Result<NewEvent[], DomainError>   (NewEvent = Ereignis ohne seq)
   apply.ts       apply(state, event) → state   (rein)
   replay.ts      replay(events) → state        (überspringt aufgehobene)
-  schedule/      roundRobin.ts, assignTables.ts
-  bracket/       buildBracket.ts, crossSeeding.ts, byes.ts
-  standings/     computeStandings.ts, tiebreak.ts
-  timer/         remaining.ts, warnings.ts
+  schedule/      round-robin.ts, groups.ts (Verteilung, Spielplan), heats.ts (Durchgänge, Status), start.ts, heat-commands.ts
+  bracket/       bracket.ts (Setzung, Losung, Baum, Slots), commands.ts (advancePhase, Nur-KO-Start)
+  standings/     standings.ts (Punkte, Tabelle, Tiebreaker), commands.ts (recordResult, recordPlayoff)
+  timer/         timer.ts (Restzeit, Warnstufen, Alarme), commands.ts
+  decision.ts    gemeinsame Hilfen für decide (Ereignis bauen, Fehler)
   undo/          dependents.ts (welche späteren Ereignisse hängen ab)
   result.ts      Result<T,E>, ok(), err()
   index.ts       öffentliche API
