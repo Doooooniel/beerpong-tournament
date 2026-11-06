@@ -10,7 +10,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 ## M2 core – Domäne
 - [x] `domain/types.ts`, `result.ts`
 - [x] Befehle + Ereignisse mit Zod (Startumfang aus ARCHITECTURE.md)
-- [ ] `decide`, `apply`, `replay`
+- [x] `decide`, `apply`, `replay`
 - [ ] Undo / Redo über `Undone`, `undo/dependents.ts` (M19, A5)
 
 ## M3 core – Regeln

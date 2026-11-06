@@ -66,6 +66,24 @@ export const DEFAULT_SETTINGS: Settings = {
   rotationIntervalMs: 15_000,
 };
 
+/** Neues Settings-Objekt; timerByPhase wird feldweise gemischt, nichts wird geteilt. */
+export const mergeSettings = (base: Settings, patch: SettingsPatch): Settings => {
+  const merged = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined && key !== 'timerByPhase') Object.assign(merged, { [key]: value });
+  }
+  merged.timerByPhase = { ...base.timerByPhase };
+  for (const [key, value] of Object.entries(patch.timerByPhase ?? {})) {
+    if (value !== undefined) Object.assign(merged.timerByPhase, { [key]: value });
+  }
+  merged.timerWarningsMs = [...merged.timerWarningsMs];
+  return merged;
+};
+
+/** Gruppen-IDs vor dem Start: 'A', 'B', … gemäß groupCount. */
+export const groupIds = (groupCount: number): string[] =>
+  Array.from({ length: groupCount }, (_, i) => String.fromCharCode(65 + i));
+
 /** Settings, die ab TournamentStarted nicht mehr geändert werden dürfen. */
 export const STRUCTURAL_SETTINGS = [
   'mode',
