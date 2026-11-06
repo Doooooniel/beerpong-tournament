@@ -9,7 +9,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 
 ## M2 core – Domäne
 - [x] `domain/types.ts`, `result.ts`
-- [ ] Befehle + Ereignisse mit Zod (Startumfang aus ARCHITECTURE.md)
+- [x] Befehle + Ereignisse mit Zod (Startumfang aus ARCHITECTURE.md)
 - [ ] `decide`, `apply`, `replay`
 - [ ] Undo / Redo über `Undone`, `undo/dependents.ts` (M19, A5)
 
@@ -44,7 +44,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [ ] Gruppen-Panel mit Drag-and-drop + „Zufällig“ (M05)
 - [ ] Spielplan, Durchgang starten, Tische tauschen (M15, M16)
 - [ ] Timer-Steuerung (M13)
-- [ ] Ergebniseingabe ≤ 2 Klicks, optional Becher (M07, S01, N08)
+- [ ] Ergebniseingabe ≤ 2 Klicks, optional Becher; nur für Partien gestarteter Durchgänge anbieten (M07, S01, N08)
 - [ ] Stechen erfassen (M09)
 - [ ] Protokoll + gezieltes Rückgängig (M19, M20)
 - [ ] Beamer-Steuerung: Modus, Ansicht, Intervall (S06)
