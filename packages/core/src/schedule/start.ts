@@ -1,5 +1,6 @@
 import { groupIds } from '../domain/settings.js';
 import type { DecideContext, Group, TournamentState } from '../domain/types.js';
+import { startKnockoutOnly } from '../bracket/commands.js';
 import { event, fail, notStarted, type Decision } from '../decision.js';
 import { buildGroupStage, defaultAdvancers, randomGroupAssignment } from './groups.js';
 
@@ -37,5 +38,5 @@ export const startTournament = (state: TournamentState, ctx: DecideContext): Dec
   const blocked = notStarted(state);
   if (blocked) return blocked;
   if (state.settings.mode === 'groupsKo') return startGroups(state, ctx);
-  return fail('NOT_IMPLEMENTED', 'koOnly start comes with the knockout rules.');
+  return startKnockoutOnly(state, ctx);
 };

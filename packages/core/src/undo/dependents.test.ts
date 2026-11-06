@@ -1019,3 +1019,111 @@ describe('Regel b erweitert: Nur-KO-Start hängt von thirdPlaceMatch ab (M04, S0
     expect(s.deps(target)).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regel j: HeatStarted eines KO-Durchgangs hängt von den Ergebnissen der Quellpartien ab
+// ---------------------------------------------------------------------------
+
+describe('Regel j: KO-HeatStarted hängt von den Ergebnissen der Quellpartien ab (M11, M19, Festlegung)', () => {
+  /**
+   * Nur-KO, 8 Teams, 2 Tische: Viertelfinale in 2 Durchgängen (VF1+VF2, VF3+VF4), Halbfinale in
+   * einem Durchgang (HF1 = Sieger VF1/VF2, HF2 = Sieger VF3/VF4), optional Platz 3, Finale.
+   */
+  const koOnlySession = (thirdPlace: boolean) => {
+    const s = new Session();
+    s.one({ type: 'createTournament', name: 'Sommerturnier' }, 'TournamentCreated');
+    s.settings({ mode: 'koOnly', ...(thirdPlace ? { thirdPlaceMatch: true } : {}) });
+    s.one({ type: 'setTableCount', tableCount: 2 }, 'TableCountSet');
+    const t = Array.from(
+      { length: 8 },
+      (_, i) =>
+        s.one({ type: 'addTeam', name: `T${i + 1}`, players: ['P'] }, 'TeamAdded').payload.teamId,
+    );
+    const ko = (
+      id: string,
+      phase: Match['phase'],
+      position: number,
+      a: Match['a'],
+      b: Match['b'],
+    ): Match => ({ id, phase, round: 1, position, groupId: null, a, b, bye: false });
+    const team = (i: number) => ({ teamId: t[i] as string });
+    const matches: Match[] = [
+      ko('QF1', 'quarterfinal', 1, team(0), team(1)),
+      ko('QF2', 'quarterfinal', 2, team(2), team(3)),
+      ko('QF3', 'quarterfinal', 3, team(4), team(5)),
+      ko('QF4', 'quarterfinal', 4, team(6), team(7)),
+      ko('SF1', 'semifinal', 1, { winnerOf: 'QF1' }, { winnerOf: 'QF2' }),
+      ko('SF2', 'semifinal', 2, { winnerOf: 'QF3' }, { winnerOf: 'QF4' }),
+      ko('FINAL', 'final', 1, { winnerOf: 'SF1' }, { winnerOf: 'SF2' }),
+    ];
+    const heats: Heat[] = [
+      { id: 'H-qf-1', phase: 'quarterfinal', round: 1, index: 1, matchIds: ['QF1', 'QF2'] },
+      { id: 'H-qf-2', phase: 'quarterfinal', round: 1, index: 2, matchIds: ['QF3', 'QF4'] },
+      { id: 'H-sf-1', phase: 'semifinal', round: 1, index: 1, matchIds: ['SF1', 'SF2'] },
+    ];
+    if (thirdPlace) {
+      matches.push(ko('P3', 'thirdPlace', 1, { loserOf: 'SF1' }, { loserOf: 'SF2' }));
+      heats.push({ id: 'H-p3-1', phase: 'thirdPlace', round: 1, index: 1, matchIds: ['P3'] });
+    }
+    heats.push({ id: 'H-f-1', phase: 'final', round: 1, index: 1, matchIds: ['FINAL'] });
+    s.push('TournamentStarted', { groups: [], advancersPerGroup: null, matches, heats });
+    // Sieger immer Slot a: VF → T1, T3, T5, T7; HF → T1, T5; Finale → T1
+    const hsQf1 = s.heatStarted('H-qf-1', 600_000);
+    const qf1 = s.result('QF1', t[0] as string);
+    const qf2 = s.result('QF2', t[2] as string);
+    const hsQf2 = s.heatStarted('H-qf-2', 600_000);
+    const qf3 = s.result('QF3', t[4] as string);
+    const qf4 = s.result('QF4', t[6] as string);
+    return { s, t, hsQf1, qf1, qf2, hsQf2, qf3, qf4 };
+  };
+
+  it('M19/j: Ergebnis aus VF-Durchgang 1 → HeatStarted des Halbfinal-Durchgangs (direkter Vorgänger ist VF-Durchgang 2)', () => {
+    const { s, qf1, qf2, qf3, qf4 } = koOnlySession(false);
+    const hsSf = s.heatStarted('H-sf-1', null);
+    for (const r of [qf1, qf2, qf3, qf4]) expect(s.deps(r)).toContain(hsSf.id);
+  });
+
+  it('M19/j: isoliert – nachträglich neu erfasstes VF1-Ergebnis (nach Start von VF-Durchgang 2) → Halbfinal-Start und HF1', () => {
+    // Protokoll bewusst ohne Kaskade: VF1-Ergebnis direkt aufgehoben und neu erfasst, nachdem
+    // VF-Durchgang 2 schon lief. Regel e (Vorgänger-Durchgang) greift für das neue Ergebnis nicht,
+    // weil HeatStarted(VF2) früher liegt; die Abhängigkeit entsteht nur über Regel j (+ h, i).
+    const { s, t, qf1 } = koOnlySession(false);
+    s.pushUndone(qf1.id);
+    const qf1New = s.result('QF1', t[1] as string);
+    const hsSf = s.heatStarted('H-sf-1', null);
+    const sf1 = s.result('SF1', t[1] as string);
+    const sf2 = s.result('SF2', t[4] as string);
+    expect(s.deps(qf1New)).toEqual(ids(hsSf, sf1, sf2));
+  });
+
+  it('M19/j: isoliert – Finale-Start hängt vom HF-Ergebnis ab, obwohl sein Vorgänger der Platz-3-Durchgang ist', () => {
+    const { s, t } = koOnlySession(true);
+    const hsSf = s.heatStarted('H-sf-1', null);
+    const sf1 = s.result('SF1', t[0] as string);
+    s.result('SF2', t[4] as string);
+    s.heatStarted('H-p3-1', null);
+    s.result('P3', t[2] as string);
+    // HF1 nachträglich korrigiert (ohne Kaskade), danach Finale gestartet
+    s.pushUndone(sf1.id);
+    const sf1New = s.result('SF1', t[2] as string);
+    const hsF = s.heatStarted('H-f-1', null);
+    const fin = s.result('FINAL', t[2] as string);
+    expect(s.deps(sf1New)).toEqual(ids(hsF, fin));
+    expect(s.deps(hsSf)).toContain(hsF.id);
+  });
+
+  it('M19/j: Ergebnis einer Partie, die keine Quelle des Durchgangs ist, begründet über Regel j nichts', () => {
+    // VF3 ist keine Quelle von HF1; wird VF3 nach dem Halbfinal-Start nur in einem späteren
+    // Protokollstand neu erfasst, hängt nur HF2 (Regel h) davon ab, nicht HF1.
+    const { s, t, qf3 } = koOnlySession(false);
+    const hsSf = s.heatStarted('H-sf-1', null);
+    s.pushUndone(qf3.id);
+    const qf3New = s.result('QF3', t[5] as string);
+    const sf1 = s.result('SF1', t[0] as string);
+    const sf2 = s.result('SF2', t[5] as string);
+    const deps = s.deps(qf3New);
+    expect(deps).toContain(sf2.id);
+    expect(deps).not.toContain(sf1.id);
+    expect(deps).not.toContain(hsSf.id);
+  });
+});

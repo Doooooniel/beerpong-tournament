@@ -122,7 +122,16 @@ export const dependsOn = (e: DomainEvent, p: DomainEvent, ix: ScheduleIndex): bo
     // e: Durchgang hängt von den Ergebnissen des vorherigen Durchgangs ab (streng nacheinander).
     if (e.type === 'HeatStarted') {
       const previous = ix.previousHeat.get(e.payload.heatId);
-      return !!previous && previous.matchIds.includes(p.payload.matchId);
+      if (previous?.matchIds.includes(p.payload.matchId)) return true;
+      // j: KO-Durchgang hängt von den Ergebnissen der Quellpartien seiner Partien ab.
+      const heat = ix.heats.get(e.payload.heatId);
+      return (
+        !!heat &&
+        heat.matchIds.some((m) => {
+          const match = ix.matches.get(m);
+          return !!match && sourcesOf(match).includes(p.payload.matchId);
+        })
+      );
     }
     // f: KO-Baum hängt von Gruppenergebnissen ab.
     if (e.type === 'PhaseAdvanced') return pm?.phase === 'group';

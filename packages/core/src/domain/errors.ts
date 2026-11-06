@@ -33,7 +33,6 @@ export const DOMAIN_ERROR_CODES = [
   'TIMER_ALREADY_PAUSED',
   'TIMER_NOT_PAUSED',
   'TIMER_UNLIMITED',
-  'NOT_IMPLEMENTED',
 ] as const;
 
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];

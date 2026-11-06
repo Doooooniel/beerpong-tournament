@@ -13,6 +13,7 @@ import { event, fail, notStarted, type Decision } from './decision.js';
 import { randomizeGroups, startTournament } from './schedule/start.js';
 import { timerCommand } from './timer/commands.js';
 import { startHeat, swapTables } from './schedule/heat-commands.js';
+import { advancePhase } from './bracket/commands.js';
 import { recordPlayoff, recordResult } from './standings/commands.js';
 import { dependsOn, findDependents, indexSchedule } from './undo/dependents.js';
 
@@ -201,7 +202,7 @@ export const decide: Decide = (state, command, ctx) => {
     case 'restartTimer':
       return timerCommand(state, command, ctx);
     case 'advancePhase':
-      return fail('NOT_IMPLEMENTED', 'Comes with the knockout rules.');
+      return advancePhase(state, ctx);
     case 'swapTables':
       return swapTables(state, command, ctx);
     case 'startHeat':
