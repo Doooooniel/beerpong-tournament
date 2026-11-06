@@ -1,0 +1,60 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm ci)",
+      "Bash(npm run:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm start)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git log:*)"
+    ],
+    "ask": [
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx playwright install:*)",
+      "Edit(./package.json)",
+      "Edit(./packages/*/package.json)",
+      "Edit(./CLAUDE.md)",
+      "Edit(./DESIGN.md)",
+      "Edit(./docs/SPEC.md)",
+      "Edit(./docs/ARCHITECTURE.md)",
+      "Edit(./docs/adr/**)",
+      "Edit(./.claude/**)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(rm -rf:*)",
+      "Read(./data/**)",
+      "Edit(./data/**)"
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "ponytail@ponytail": true
+  }
+}

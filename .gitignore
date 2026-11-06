@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/*
+!data/.gitkeep
+*.db
+*.db-journal
+coverage/
+playwright-report/
+test-results/
+.env
+.DS_Store
