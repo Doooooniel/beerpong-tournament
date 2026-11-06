@@ -3,9 +3,9 @@
 Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald erledigt.
 
 ## M1 Gerüst
-- [ ] npm Workspaces (`packages/*`), `tsconfig.base.json` (strict), Projekt-Referenzen
-- [ ] ESLint + Prettier, Vitest-Workspace, Skripte `dev`, `start`, `test`, `e2e`, `check`, `db:generate`
-- [ ] Leere Pakete core/server/web mit je einem Smoke-Test
+- [x] npm Workspaces (`packages/*`), `tsconfig.base.json` (strict), Projekt-Referenzen
+- [x] ESLint + Prettier, Vitest-Workspace, Skripte `dev`, `start`, `test`, `e2e`, `check`, `db:generate`
+- [x] Leere Pakete core/server/web mit je einem Smoke-Test
 
 ## M2 core – Domäne
 - [ ] `domain/types.ts`, `result.ts`
