@@ -916,3 +916,55 @@ describe('Redo bei weiterhin aufgehobener Grundlage (ADR 026-5 erweitert, Nutzer
     expect(s.state.results['SF1']).toBeDefined();
   });
 });
+
+describe('Regel b erweitert: Nur-KO-Start hängt von thirdPlaceMatch ab (M04, S04, M19, Review)', () => {
+  const setup = (patch: SettingsPatch) => {
+    const s = new Session();
+    s.one({ type: 'createTournament', name: 'Sommerturnier' }, 'TournamentCreated');
+    s.settings({ mode: 'koOnly' });
+    const [t1, t2, t3, t4] = ['T1', 'T2', 'T3', 'T4'].map(
+      (name) => s.one({ type: 'addTeam', name, players: ['P'] }, 'TeamAdded').payload.teamId,
+    ) as [string, string, string, string];
+    const target = s.settings(patch);
+    const ko = (id: string, phase: Match['phase'], a: Match['a'], b: Match['b']): Match => ({
+      id,
+      phase,
+      round: 1,
+      groupId: null,
+      a,
+      b,
+      bye: false,
+    });
+    const started = s.push('TournamentStarted', {
+      groups: [],
+      advancersPerGroup: null,
+      matches: [
+        ko('SF1', 'semifinal', { teamId: t1 }, { teamId: t4 }),
+        { ...ko('SF2', 'semifinal', { teamId: t2 }, { teamId: t3 }), round: 2 },
+        ko('FINAL', 'final', { winnerOf: 'SF1' }, { winnerOf: 'SF2' }),
+        ko('P3', 'thirdPlace', { loserOf: 'SF1' }, { loserOf: 'SF2' }),
+      ],
+      heats: [{ id: 'H-ko-sf-1', phase: 'semifinal', round: 1, index: 1, matchIds: ['SF1'] }],
+    });
+    return { s, target, started };
+  };
+
+  it('M19/b: koOnly – SettingsUpdated { thirdPlaceMatch } → TournamentStarted mit KO-Baum abhängig', () => {
+    const { s, target, started } = setup({ thirdPlaceMatch: true });
+    expect(s.deps(target)).toContain(started.id);
+  });
+
+  it('M19/b: koOnly – undoEvent auf thirdPlaceMatch ohne confirm → UNDO_HAS_DEPENDENTS', () => {
+    const { s, target, started } = setup({ thirdPlaceMatch: true });
+    const error = expectError(
+      s.decide({ type: 'undoEvent', eventId: target.id }),
+      'UNDO_HAS_DEPENDENTS',
+    );
+    expect(error.dependents).toContain(started.id);
+  });
+
+  it('M19/b: koOnly – SettingsUpdated { soundEnabled } bleibt unabhängig', () => {
+    const { s, target } = setup({ soundEnabled: false });
+    expect(s.deps(target)).toEqual([]);
+  });
+});

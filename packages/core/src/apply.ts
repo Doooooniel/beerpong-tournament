@@ -72,16 +72,20 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
       return { ...s, tableCount: e.payload.tableCount };
     case 'TeamAssignedToGroup': {
       const { teamId, groupId } = e.payload;
+      // Nach einem Undo von groupCount kann die Gruppe fehlen; dann gilt das Team als nicht zugeteilt.
+      const exists = groupId !== null && groupIds(s.settings.groupCount).includes(groupId);
       return {
         ...s,
-        groupAssignment:
-          groupId === null
-            ? withoutKey(s.groupAssignment, teamId)
-            : { ...s.groupAssignment, [teamId]: groupId },
+        groupAssignment: exists
+          ? { ...s.groupAssignment, [teamId]: groupId }
+          : withoutKey(s.groupAssignment, teamId),
       };
     }
-    case 'GroupsAssigned':
-      return { ...s, groupAssignment: { ...e.payload.assignment } };
+    case 'GroupsAssigned': {
+      const valid = new Set(groupIds(s.settings.groupCount));
+      const assignment = Object.entries(e.payload.assignment).filter(([, g]) => valid.has(g));
+      return { ...s, groupAssignment: Object.fromEntries(assignment) };
+    }
     case 'TournamentStarted':
       return {
         ...s,

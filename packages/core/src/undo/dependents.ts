@@ -84,9 +84,11 @@ export const dependsOn = (e: DomainEvent, p: DomainEvent, ix: ScheduleIndex): bo
   // b: Start hängt vom Setup ab.
   if (e.type === 'TournamentStarted') {
     if (SETUP_TYPES.has(p.type)) return true;
-    if (p.type === 'SettingsUpdated')
-      return STRUCTURAL_SETTINGS.some((k) => p.payload.settings[k] !== undefined);
-    return false;
+    if (p.type !== 'SettingsUpdated') return false;
+    if (STRUCTURAL_SETTINGS.some((k) => p.payload.settings[k] !== undefined)) return true;
+    // Nur-KO: der Start enthält den Baum, also auch das Spiel um Platz 3 (S04).
+    const containsBracket = e.payload.matches.some((m) => m.phase !== 'group');
+    return containsBracket && p.payload.settings.thirdPlaceMatch !== undefined;
   }
 
   // c: Verweise auf Durchgänge, Partien, Gruppen hängen von deren Erzeuger ab.

@@ -23,7 +23,7 @@ packages/core/src/
   domain/        types.ts (Tournament, Team, Table, Group, Round, Heat, Match, Settings, TournamentState)
   commands/      ein Zod-Schema + Typ je Befehl; index.ts exportiert Union `Command`
   events/        ein Zod-Schema + Typ je Ereignis (mit `v`); Union `DomainEvent`
-  decide.ts      decide(state, command, ctx) → Result<DomainEvent[], DomainError>
+  decide.ts      decide(state, command, ctx) → Result<NewEvent[], DomainError>   (NewEvent = Ereignis ohne seq)
   apply.ts       apply(state, event) → state   (rein)
   replay.ts      replay(events) → state        (überspringt aufgehobene)
   schedule/      roundRobin.ts, assignTables.ts

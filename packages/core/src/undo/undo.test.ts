@@ -1,7 +1,7 @@
 // Regeltests aus SPEC M19 und ADR 026: undo, undoEvent, Redo, Bestätigung bei Abhängigen.
 // Setup-Befehle laufen über decide; alles Nichtdeterministische kommt aus einem festen ctx.
 import { describe, expect, it } from 'vitest';
-import { DomainEventSchema, apply, decide, initialState } from '../index.js';
+import { DomainEventSchema, apply, decide, groupIds, initialState } from '../index.js';
 import type {
   Command,
   DecideContext,
@@ -506,5 +506,69 @@ describe('Redo – Undone aufheben (M19, ADR 026-3/5)', () => {
     const u1 = s.commit(s.undoEvent(x.id, true));
     const redo = expectSingleUndone(s.undoEvent(u1.id));
     expect(redo.payload.cascade).toEqual([]);
+  });
+});
+
+describe('Konsistenz nach Undo: Gruppenzuteilung (M05, M19, Review)', () => {
+  it('M05/M19: Undo von groupCount 4 → Zuteilung zu „C“ wirkt nicht mehr; Redo stellt sie wieder her', () => {
+    const s = new Session();
+    s.create();
+    const t = s.addTeam('Alpha').payload.teamId;
+    const g4 = s.one({ type: 'updateSettings', settings: { groupCount: 4 } }, 'SettingsUpdated');
+    s.one({ type: 'assignTeamToGroup', teamId: t, groupId: 'C' }, 'TeamAssignedToGroup');
+    expect(s.state.groupAssignment[t]).toBe('C');
+
+    const u1 = s.commit(s.undoEvent(g4.id)); // keine Abhängigkeit, keine Warnung
+    expect(u1.payload.cascade).toEqual([]);
+    const valid = groupIds(s.state.settings.groupCount);
+    for (const g of Object.values(s.state.groupAssignment)) expect(valid).toContain(g);
+    expect(s.state.groupAssignment[t]).toBeUndefined();
+
+    s.commit(s.undoEvent(u1.id));
+    expect(s.state.settings.groupCount).toBe(4);
+    expect(s.state.groupAssignment[t]).toBe('C');
+  });
+});
+
+describe('Konsistenz nach Undo: Teamnamen bleiben eindeutig (M03, M19, Review)', () => {
+  it.each([undefined, true])(
+    'M03/M19: Undo von TeamRemoved, wenn der Name inzwischen vergeben ist → TEAM_NAME_TAKEN (confirm=%s)',
+    (confirm) => {
+      const s = new Session();
+      s.create();
+      const alpha = s.addTeam('Alpha');
+      const removed = s.one({ type: 'removeTeam', teamId: alpha.payload.teamId }, 'TeamRemoved');
+      s.addTeam('Alpha');
+      expectError(s.undoEvent(removed.id, confirm), 'TEAM_NAME_TAKEN');
+    },
+  );
+
+  it.each([undefined, true])(
+    'M03/M19: Undo von TeamRenamed, wenn der alte Name inzwischen vergeben ist → TEAM_NAME_TAKEN (confirm=%s)',
+    (confirm) => {
+      const s = new Session();
+      s.create();
+      const alpha = s.addTeam('Alpha');
+      const renamed = s.one(
+        { type: 'renameTeam', teamId: alpha.payload.teamId, name: 'Beta' },
+        'TeamRenamed',
+      );
+      s.addTeam('Alpha');
+      expectError(s.undoEvent(renamed.id, confirm), 'TEAM_NAME_TAKEN');
+    },
+  );
+
+  it('M03/ADR026-5: Redo, das einen doppelten Namen erzeugen würde (danach nur Undone) → TEAM_NAME_TAKEN', () => {
+    const s = new Session();
+    s.create();
+    const x = s.addTeam('Alpha');
+    s.one({ type: 'renameTeam', teamId: x.payload.teamId, name: 'Beta' }, 'TeamRenamed');
+    s.addTeam('Alpha'); // Y, Name ist frei
+    const u1 = s.commit(s.undo()); // hebt TeamAdded Y auf
+    s.commit(s.undo()); // hebt TeamRenamed X auf → X heißt wieder „Alpha“
+    expect(s.teamNames()).toEqual(['Alpha']);
+    // Nach U1 liegt nur ein Undone; Redo von U1 würde Y „Alpha“ zurückholen
+    expectError(s.undoEvent(u1.id), 'TEAM_NAME_TAKEN');
+    expect(s.teamNames()).toEqual(['Alpha']);
   });
 });

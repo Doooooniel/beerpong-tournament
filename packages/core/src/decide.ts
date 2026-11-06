@@ -8,6 +8,7 @@ import {
 } from './domain/settings.js';
 import type { Decide, DecideContext, LogEntry, Team, TournamentState } from './domain/types.js';
 import type { DomainEventType, EventOf, NewEvent } from './events/index.js';
+import { apply } from './apply.js';
 import { err, ok, type Result } from './result.js';
 import { dependsOn, findDependents, indexSchedule } from './undo/dependents.js';
 
@@ -52,6 +53,9 @@ const updateSettings = (
     ...(state.phase === 'knockout' ? (['thirdPlaceMatch'] as const) : []),
   ].filter((key) => patch[key] !== undefined);
   if (locked.length > 0) return fail('SETTING_LOCKED', `Locked settings: ${locked.join(', ')}.`);
+  const empty = Object.values(patch).every((v) => v === undefined);
+  // Leerer Patch: kein Ereignis, damit das Protokoll keine leeren Einträge bekommt (M20).
+  if (empty) return ok([]);
   return event(ctx, 'SettingsUpdated', { settings: patch });
 };
 
@@ -87,16 +91,31 @@ const redo = (state: TournamentState, index: number, ctx: DecideContext): Decisi
       restoredEvents.some((r) => r.seq > l.event.seq && dependsOn(r, l.event, ix)),
   );
   if (missingBasis) return fail('REDO_NOT_POSSIBLE', 'A required event is still undone.');
-  return ok([
-    {
-      id: ctx.newId(),
-      type: 'Undone',
-      v: 1,
-      at: ctx.now,
-      undoes: target.id,
-      payload: { cascade: [] },
-    },
-  ]);
+  return undone(state, ctx, target.id, []);
+};
+
+const hasDuplicateNames = (teams: Team[]): boolean =>
+  new Set(teams.map((t) => normalize(t.name))).size !== teams.length;
+
+/** Undone erzeugen; Undo/Redo darf keine doppelten Teamnamen hinterlassen (M03). */
+const undone = (
+  state: TournamentState,
+  ctx: DecideContext,
+  undoes: string,
+  cascade: string[],
+): Decision => {
+  const e: NewEvent = {
+    id: ctx.newId(),
+    type: 'Undone',
+    v: 1,
+    at: ctx.now,
+    undoes,
+    payload: { cascade },
+  };
+  const after = apply(state, { ...e, seq: state.version + 1 });
+  if (hasDuplicateNames(after.teams))
+    return fail('TEAM_NAME_TAKEN', 'Undoing this would create a duplicate team name.');
+  return ok([e]);
 };
 
 const undoEvent = (
@@ -113,18 +132,10 @@ const undoEvent = (
     return fail('CANNOT_UNDO_CREATION', 'The tournament itself cannot be undone.');
   if (entry.event.type === 'Undone') return redo(state, index, ctx);
   const dependents = findDependents(state, eventId);
-  if (dependents.length > 0 && !confirm)
+  const decision = undone(state, ctx, eventId, dependents);
+  if (decision.ok && dependents.length > 0 && !confirm)
     return fail('UNDO_HAS_DEPENDENTS', 'Later events depend on this event.', dependents);
-  return ok([
-    {
-      id: ctx.newId(),
-      type: 'Undone',
-      v: 1,
-      at: ctx.now,
-      undoes: eventId,
-      payload: { cascade: dependents },
-    },
-  ]);
+  return decision;
 };
 
 export const decide: Decide = (state, command, ctx) => {
@@ -142,15 +153,14 @@ export const decide: Decide = (state, command, ctx) => {
       return updateSettings(state, command, ctx);
     case 'addTeam': {
       const name = command.name.trim();
+      const blocked = notStarted(state);
+      if (blocked) return blocked;
       if (nameTaken(state.teams, name)) return fail('TEAM_NAME_TAKEN', 'Team name already used.');
-      return (
-        notStarted(state) ??
-        event(ctx, 'TeamAdded', {
-          teamId: ctx.newId(),
-          name,
-          players: command.players.map((p) => p.trim()),
-        })
-      );
+      return event(ctx, 'TeamAdded', {
+        teamId: ctx.newId(),
+        name,
+        players: command.players.map((p) => p.trim()),
+      });
     }
     case 'renameTeam': {
       const name = command.name.trim();
