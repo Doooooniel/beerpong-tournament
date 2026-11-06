@@ -49,6 +49,8 @@ packages/core/src/
 
 Jedes Ereignis: `{ id, seq, type, v, at, payload, undoes?: eventId }`.
 
+`TournamentState.log` enthält alle Ereignisse mit Flag `undone` (Protokoll, Grundlage für `undo`). `Undone` hebt Ziel (`undoes`) und `payload.cascade` gemeinsam auf; Details in ADR 026.
+
 ## server
 
 ```

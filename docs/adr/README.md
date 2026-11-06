@@ -29,6 +29,7 @@ Alle bisherigen Entscheidungen kompakt. Neue ADRs als eigene Datei `NNNN-titel.m
 | 023 | Ein Prozess, ein Port | Akzeptiert | 3000, Host 127.0.0.1; LAN später via 0.0.0.0 |
 | 024 | Login pro Turnier, Liste öffentlich | Akzeptiert | Passwort beim Anlegen; Liste ohne Login, Sitzung je Turnier |
 | 025 | Status abgeleitet, KO-Baum komplett im Ereignis | Akzeptiert | Kein Statusereignis; `advancePhase` erzeugt den vollständigen Baum |
+| 026 | Undo-Kaskade, Protokoll im Zustand, Modus in Settings | Akzeptiert | Ein `Undone` mit `cascade`; `state.log`; `mode`, `groupCount`, `advancersPerGroup: number \| null` |
 
 ## Vorlage
 

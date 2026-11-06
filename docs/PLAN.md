@@ -8,7 +8,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [x] Leere Pakete core/server/web mit je einem Smoke-Test
 
 ## M2 core – Domäne
-- [ ] `domain/types.ts`, `result.ts`
+- [x] `domain/types.ts`, `result.ts`
 - [ ] Befehle + Ereignisse mit Zod (Startumfang aus ARCHITECTURE.md)
 - [ ] `decide`, `apply`, `replay`
 - [ ] Undo / Redo über `Undone`, `undo/dependents.ts` (M19, A5)

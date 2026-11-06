@@ -153,9 +153,11 @@ PlayoffRecorded.payload = { groupId: string, tiedTeamIds: string[], winnerTeamId
 
 ```ts
 Settings = {
+  mode: 'groupsKo' | 'koOnly',           // Standard 'groupsKo' (M04)
+  groupCount: number,                    // Zweierpotenz ≥ 1, Standard 2 (M05); bei 'koOnly' ignoriert
   trackCups: boolean,                    // Standard false (S01)
   thirdPlaceMatch: boolean,              // Standard false (S04)
-  advancersPerGroup: number,             // siehe „Gruppen“
+  advancersPerGroup: number | null,      // null = Standard nach „Gruppen“, berechnet beim Start (ADR 026)
   timerByPhase: {
     group: number | null,                // ms, Standard 900000 (15 min)
     ko64: number | null, ko32: number | null, ko16: number | null,
