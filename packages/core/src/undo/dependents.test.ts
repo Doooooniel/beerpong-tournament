@@ -101,7 +101,7 @@ class Session {
 
   // Bequeme Ereignis-Bausteine
   heatStarted(heatId: string, durationMs: number | null = GROUP_MS) {
-    return this.push('HeatStarted', { heatId, durationMs, startedAt: this.clock });
+    return this.push('HeatStarted', { heatId, durationMs });
   }
   result(matchId: string, winnerTeamId: string) {
     return this.push('ResultRecorded', { matchId, outcome: 'win', winnerTeamId });
@@ -185,6 +185,7 @@ function startedSession(beforeStart?: (s: Session) => void) {
           id,
           phase: 'group',
           round,
+          position: k + 1,
           groupId: g,
           a: { teamId: a },
           b: { teamId: b },
@@ -256,6 +257,7 @@ function startedSession(beforeStart?: (s: Session) => void) {
         id: 'SF1',
         phase: 'semifinal',
         round: 1,
+        position: 1,
         groupId: null,
         a: { teamId: a1 },
         b: { teamId: b2 },
@@ -264,7 +266,8 @@ function startedSession(beforeStart?: (s: Session) => void) {
       {
         id: 'SF2',
         phase: 'semifinal',
-        round: 2,
+        round: 1,
+        position: 2,
         groupId: null,
         a: { teamId: b1 },
         b: { teamId: a2 },
@@ -274,6 +277,7 @@ function startedSession(beforeStart?: (s: Session) => void) {
         id: 'FINAL',
         phase: 'final',
         round: 1,
+        position: 1,
         groupId: null,
         a: { winnerOf: 'SF1' },
         b: { winnerOf: 'SF2' },
@@ -289,6 +293,7 @@ function startedSession(beforeStart?: (s: Session) => void) {
         id: 'P3',
         phase: 'thirdPlace',
         round: 1,
+        position: 1,
         groupId: null,
         a: { loserOf: 'SF1' },
         b: { loserOf: 'SF2' },
@@ -311,7 +316,7 @@ function knockoutPlayed() {
   const pa = advance(true);
   const view = s.push('BeamerViewSet', { view: 'bracket' });
   const hs = s.heatStarted(KO_HEAT, null);
-  const tp = s.push('TimerPaused', { heatId: KO_HEAT, pausedAt: T0 + 900_000 });
+  const tp = s.push('TimerPaused', { heatId: KO_HEAT });
   const undoneTp = s.pushUndone(tp.id);
   const sf1 = s.result('SF1', A[0] as string); // Verlierer B2
   const sf2 = s.result('SF2', B[0] as string); // Verlierer A2
@@ -504,7 +509,7 @@ describe('Regel c: Durchgänge, Partien, Gruppen hängen vom erzeugenden Ereigni
     const { s, A, started } = startedSession();
     const hs = s.heatStarted(groupHeatId(1, 1));
     const sw = s.push('TablesSwapped', { heatId: groupHeatId(1, 2), tableA: 1, tableB: 2 });
-    const tp = s.push('TimerPaused', { heatId: groupHeatId(1, 1), pausedAt: T0 + 500_000 });
+    const tp = s.push('TimerPaused', { heatId: groupHeatId(1, 1) });
     const rr = s.result(groupMatchId('A', 1, 1), A[0] as string);
     const po = s.push('PlayoffRecorded', {
       groupId: 'A',
@@ -547,14 +552,14 @@ describe('Regel d: Timer-Kette eines Durchgangs (M13, M19)', () => {
     const h1 = groupHeatId(1, 1);
     const h2 = groupHeatId(2, 1);
     const hs1 = s.heatStarted(h1);
-    const tp1 = s.push('TimerPaused', { heatId: h1, pausedAt: T0 + 100_000 });
+    const tp1 = s.push('TimerPaused', { heatId: h1 });
     const hs2 = s.heatStarted(h2);
-    const tp2 = s.push('TimerPaused', { heatId: h2, pausedAt: T0 + 110_000 });
+    const tp2 = s.push('TimerPaused', { heatId: h2 });
     const sw1 = s.push('TablesSwapped', { heatId: h1, tableA: 1, tableB: 2 });
-    const tr1 = s.push('TimerResumed', { heatId: h1, resumedAt: T0 + 120_000 });
+    const tr1 = s.push('TimerResumed', { heatId: h1 });
     const te1 = s.push('TimerExtended', { heatId: h1, byMs: 60_000 });
-    const trs1 = s.push('TimerRestarted', { heatId: h1, startedAt: T0 + 130_000 });
-    const tp1b = s.push('TimerPaused', { heatId: h1, pausedAt: T0 + 140_000 });
+    const trs1 = s.push('TimerRestarted', { heatId: h1 });
+    const tp1b = s.push('TimerPaused', { heatId: h1 });
     return { s, hs1, tp1, hs2, tp2, sw1, tr1, te1, trs1, tp1b };
   };
 
@@ -591,7 +596,7 @@ describe('Regeln e und i: Durchgänge und ihre Ergebnisse (SPEC Tische und Durch
     const rA1 = s.result(groupMatchId('A', 1, 1), A[0] as string);
     const rA2 = s.result(groupMatchId('A', 1, 2), A[1] as string);
     const hs12 = s.heatStarted(groupHeatId(1, 2));
-    const tp12 = s.push('TimerPaused', { heatId: groupHeatId(1, 2), pausedAt: T0 + 300_000 });
+    const tp12 = s.push('TimerPaused', { heatId: groupHeatId(1, 2) });
     const rB1 = s.result(groupMatchId('B', 1, 1), B[0] as string);
     const rB2 = s.result(groupMatchId('B', 1, 2), B[1] as string);
     const hs21 = s.heatStarted(groupHeatId(2, 1));
@@ -930,6 +935,7 @@ describe('Regel b erweitert: Nur-KO-Start hängt von thirdPlaceMatch ab (M04, S0
       id,
       phase,
       round: 1,
+      position: 1,
       groupId: null,
       a,
       b,
@@ -940,7 +946,7 @@ describe('Regel b erweitert: Nur-KO-Start hängt von thirdPlaceMatch ab (M04, S0
       advancersPerGroup: null,
       matches: [
         ko('SF1', 'semifinal', { teamId: t1 }, { teamId: t4 }),
-        { ...ko('SF2', 'semifinal', { teamId: t2 }, { teamId: t3 }), round: 2 },
+        { ...ko('SF2', 'semifinal', { teamId: t2 }, { teamId: t3 }), position: 2 },
         ko('FINAL', 'final', { winnerOf: 'SF1' }, { winnerOf: 'SF2' }),
         ko('P3', 'thirdPlace', { loserOf: 'SF1' }, { loserOf: 'SF2' }),
       ],

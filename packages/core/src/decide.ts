@@ -143,13 +143,15 @@ const undoEvent = (
 
 export const decide: Decide = (state, command, ctx) => {
   if (command.type === 'createTournament') {
-    if (state.created) return fail('TOURNAMENT_ALREADY_CREATED', 'Tournament already exists.');
+    if (state.createdAt !== null)
+      return fail('TOURNAMENT_ALREADY_CREATED', 'Tournament already exists.');
     return event(ctx, 'TournamentCreated', {
       name: command.name.trim(),
       settings: mergeSettings(DEFAULT_SETTINGS, command.settings ?? {}),
     });
   }
-  if (!state.created) return fail('TOURNAMENT_NOT_CREATED', 'Create the tournament first.');
+  if (state.createdAt === null)
+    return fail('TOURNAMENT_NOT_CREATED', 'Create the tournament first.');
 
   switch (command.type) {
     case 'updateSettings':

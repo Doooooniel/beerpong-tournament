@@ -72,8 +72,8 @@ export interface LogEntry {
 export interface TournamentState {
   /** seq des letzten Ereignisses, 0 vor dem ersten (ADR 020). */
   version: number;
-  created: boolean;
   name: string;
+  /** null bis TournamentCreated. */
   createdAt: number | null;
   settings: Settings;
   tableCount: number;

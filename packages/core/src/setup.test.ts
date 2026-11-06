@@ -140,10 +140,18 @@ const eventAt = <T extends DomainEventType>(
     payload,
   });
 
-const groupMatch = (id: string, groupId: string, a: string, b: string, round = 1): Match => ({
+const groupMatch = (
+  id: string,
+  groupId: string,
+  a: string,
+  b: string,
+  position: number,
+  round = 1,
+): Match => ({
   id,
   phase: 'group',
   round,
+  position,
   groupId,
   a: { teamId: a },
   b: { teamId: b },
@@ -157,7 +165,7 @@ const startedPayload = (ids: string[]) => {
     { id: 'A', teamIds: [a1, a2] },
     { id: 'B', teamIds: [b1, b2] },
   ];
-  const matches: Match[] = [groupMatch('gm-1', 'A', a1, a2), groupMatch('gm-2', 'B', b1, b2)];
+  const matches: Match[] = [groupMatch('gm-1', 'A', a1, a2, 1), groupMatch('gm-2', 'B', b1, b2, 2)];
   const heats: Heat[] = [
     { id: 'gh-1', phase: 'group', round: 1, index: 1, matchIds: ['gm-1', 'gm-2'] },
   ];
@@ -171,6 +179,7 @@ const koPayload = (ids: string[]) => {
       id: 'ko-final',
       phase: 'final',
       round: 1,
+      position: 1,
       groupId: null,
       a: { teamId: a1 },
       b: { teamId: b1 },
@@ -218,7 +227,6 @@ describe('initialState (ADR 026, Festlegung 1)', () => {
   it('M01: leerer Zustand vor TournamentCreated', () => {
     expect(initialState()).toEqual({
       version: 0,
-      created: false,
       name: '',
       createdAt: null,
       settings: DEFAULT_SETTINGS,
@@ -322,7 +330,7 @@ describe('createTournament (M01, Festlegung 3)', () => {
     });
   });
 
-  it('M01: apply setzt created, name, createdAt = at, settings, version', () => {
+  it('M01: apply setzt name, createdAt = at (erstellt ⇔ createdAt ≠ null), settings, version', () => {
     const { state, events } = run(
       initialState(),
       { type: 'createTournament', name: 'Sommerturnier', settings: { groupCount: 4 } },
@@ -330,7 +338,6 @@ describe('createTournament (M01, Festlegung 3)', () => {
     );
     expect(state).toMatchObject({
       version: 1,
-      created: true,
       name: 'Sommerturnier',
       createdAt: T0 + 42,
       settings: { ...DEFAULT_SETTINGS, groupCount: 4 },
@@ -885,6 +892,7 @@ describe('apply TournamentStarted / PhaseAdvanced (Festlegung 10/11)', () => {
         id: 'f',
         phase: 'final',
         round: 1,
+        position: 1,
         groupId: null,
         a: { teamId: a },
         b: { teamId: b },

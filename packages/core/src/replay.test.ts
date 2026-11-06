@@ -25,6 +25,15 @@ class EventLog {
     return this.push({ id, type, v: 1, payload }) as EventOf<T>;
   }
 
+  /** Wie add, aber mit festem Zeitpunkt `at` (Timer-Werte kommen aus `at`, Architekturregel 6). */
+  addAt<T extends Exclude<DomainEventType, 'Undone'>>(
+    at: number,
+    type: T,
+    payload: EventOf<T>['payload'],
+  ): EventOf<T> {
+    return this.push({ id: `e${this.events.length + 1}`, type, v: 1, payload, at }) as EventOf<T>;
+  }
+
   undo(
     undoes: string,
     cascade: string[] = [],
@@ -41,7 +50,7 @@ class EventLog {
 
   private push(partial: Record<string, unknown>): DomainEvent {
     const seq = this.events.length + 1;
-    const event = DomainEventSchema.parse({ ...partial, seq, at: T0 + seq * 1_000 });
+    const event = DomainEventSchema.parse({ at: T0 + seq * 1_000, ...partial, seq });
     this.events.push(event);
     return event;
   }
@@ -66,6 +75,7 @@ const groupMatch = (id: string, groupId: string, a: string, b: string): Match =>
   id,
   phase: 'group',
   round: 1,
+  position: 1,
   groupId,
   a: { teamId: a },
   b: { teamId: b },
@@ -103,7 +113,7 @@ describe('initialState / replay – Grundlagen (M20, ADR 026)', () => {
   it('ADR026-1: initialState hat version 0, kein Turnier und leeres Protokoll', () => {
     const s = initialState();
     expect(s.version).toBe(0);
-    expect(s.created).toBe(false);
+    expect(s.createdAt).toBeNull();
     expect(s.log).toEqual([]);
     expect(s.teams).toEqual([]);
   });
@@ -272,7 +282,7 @@ describe('Aufgehobene Ereignisse wirken nicht: Zustand ≡ Zustand ohne sie (ADR
       'TournamentStarted mit Kaskade aufgehoben → wieder Setup',
       (log) => {
         const started = startedTournament(log);
-        const hs = log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000, startedAt: T0 });
+        const hs = log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000 });
         const rr = log.add('ResultRecorded', { matchId: 'mA', outcome: 'win', winnerTeamId: 't1' });
         log.undo(started.id, [hs.id, rr.id]);
         return [started.id, hs.id, rr.id];
@@ -282,8 +292,8 @@ describe('Aufgehobene Ereignisse wirken nicht: Zustand ≡ Zustand ohne sie (ADR
       'TimerPaused aufgehoben → Timer läuft weiter',
       (log) => {
         startedTournament(log);
-        log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000, startedAt: T0 });
-        const p = log.add('TimerPaused', { heatId: 'h1', pausedAt: T0 + 60_000 });
+        log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+        const p = log.add('TimerPaused', { heatId: 'h1' });
         log.undo(p.id);
         return [p.id];
       },
@@ -292,7 +302,7 @@ describe('Aufgehobene Ereignisse wirken nicht: Zustand ≡ Zustand ohne sie (ADR
       'ResultRecorded aufgehoben → Partie ohne Ergebnis',
       (log) => {
         startedTournament(log);
-        log.add('HeatStarted', { heatId: 'h1', durationMs: null, startedAt: T0 });
+        log.add('HeatStarted', { heatId: 'h1', durationMs: null });
         const rr = log.add('ResultRecorded', { matchId: 'mA', outcome: 'draw' });
         log.undo(rr.id);
         return [rr.id];
@@ -335,7 +345,7 @@ describe('Aufgehobene Ereignisse wirken nicht: Zustand ≡ Zustand ohne sie (ADR
   it('ADR026-1: aufgehobenes ResultRecorded entfernt das Ergebnis', () => {
     const log = new EventLog();
     startedTournament(log);
-    log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000, startedAt: T0 });
+    log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000 });
     const rr = log.add('ResultRecorded', { matchId: 'mA', outcome: 'win', winnerTeamId: 't2' });
     expect(replay(log.events).results['mA']).toBeDefined();
     log.undo(rr.id);
@@ -361,9 +371,9 @@ describe('replay(events) ≡ schrittweises apply (ADR 026-1, N03)', () => {
       'Gestartetes Turnier mit Timer und Ergebnis',
       (log) => {
         startedTournament(log);
-        log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000, startedAt: T0 });
-        const p = log.add('TimerPaused', { heatId: 'h1', pausedAt: T0 + 10_000 });
-        log.add('TimerResumed', { heatId: 'h1', resumedAt: T0 + 20_000 });
+        log.add('HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+        const p = log.add('TimerPaused', { heatId: 'h1' });
+        log.add('TimerResumed', { heatId: 'h1' });
         log.add('TimerExtended', { heatId: 'h1', byMs: 60_000 });
         log.undo(p.id);
         log.add('ResultRecorded', { matchId: 'mA', outcome: 'winByTime', winnerTeamId: 't1' });
@@ -392,5 +402,166 @@ describe('replay(events) ≡ schrittweises apply (ADR 026-1, N03)', () => {
       state = apply(state, event);
       expect(state).toEqual(replay(log.events.slice(0, i + 1)));
     });
+  });
+});
+
+describe('Timer-Werte im Zustand (Architekturregel 6, M12, M13)', () => {
+  const H = T0 + 100_000; // Start des Durchgangs, nach den Setup-Ereignissen
+  const timer = (log: EventLog, heatId = 'h1') => replay(log.events).timers[heatId];
+  const started = () => {
+    const log = new EventLog();
+    startedTournament(log);
+    return log;
+  };
+
+  it('M13: HeatStarted → Timer läuft mit startedAt = at, ohne Pause', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    expect(timer(log)).toEqual({
+      durationMs: 900_000,
+      startedAt: H,
+      pausedAt: null,
+      pausedTotalMs: 0,
+    });
+    expect(timer(log, 'h2')).toBeUndefined();
+  });
+
+  it('M13: pausiert → pausedAt = at der Pause', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 10_000, 'TimerPaused', { heatId: 'h1' });
+    expect(timer(log)).toEqual({
+      durationMs: 900_000,
+      startedAt: H,
+      pausedAt: H + 10_000,
+      pausedTotalMs: 0,
+    });
+  });
+
+  it('M13: fortgesetzt → pausedAt null, pausedTotalMs = Pausendauer', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 10_000, 'TimerPaused', { heatId: 'h1' });
+    log.addAt(H + 25_000, 'TimerResumed', { heatId: 'h1' });
+    expect(timer(log)).toEqual({
+      durationMs: 900_000,
+      startedAt: H,
+      pausedAt: null,
+      pausedTotalMs: 15_000,
+    });
+  });
+
+  it('M13: mehrfach pausiert → Pausendauern addieren sich', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 10_000, 'TimerPaused', { heatId: 'h1' });
+    log.addAt(H + 25_000, 'TimerResumed', { heatId: 'h1' });
+    log.addAt(H + 40_000, 'TimerPaused', { heatId: 'h1' });
+    log.addAt(H + 45_000, 'TimerResumed', { heatId: 'h1' });
+    expect(timer(log)).toEqual({
+      durationMs: 900_000,
+      startedAt: H,
+      pausedAt: null,
+      pausedTotalMs: 20_000,
+    });
+    log.addAt(H + 60_000, 'TimerPaused', { heatId: 'h1' });
+    expect(timer(log)).toMatchObject({ pausedAt: H + 60_000, pausedTotalMs: 20_000 });
+  });
+
+  it('M13: verlängert → durationMs + byMs, sonst unverändert', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 10_000, 'TimerPaused', { heatId: 'h1' });
+    log.addAt(H + 20_000, 'TimerExtended', { heatId: 'h1', byMs: 60_000 });
+    expect(timer(log)).toEqual({
+      durationMs: 960_000,
+      startedAt: H,
+      pausedAt: H + 10_000,
+      pausedTotalMs: 0,
+    });
+  });
+
+  it('M12: durationMs = null (ohne Zeitlimit) bleibt null, auch nach TimerExtended', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: null });
+    expect(timer(log)).toEqual({
+      durationMs: null,
+      startedAt: H,
+      pausedAt: null,
+      pausedTotalMs: 0,
+    });
+    log.addAt(H + 5_000, 'TimerExtended', { heatId: 'h1', byMs: 60_000 });
+    expect(timer(log)?.durationMs).toBeNull();
+  });
+
+  it('M13: Neustart → startedAt = at, Pause und Pausensumme zurückgesetzt (auch wenn pausiert)', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 10_000, 'TimerPaused', { heatId: 'h1' });
+    log.addAt(H + 25_000, 'TimerResumed', { heatId: 'h1' });
+    log.addAt(H + 30_000, 'TimerPaused', { heatId: 'h1' });
+    const T1 = H + 200_000;
+    log.addAt(T1, 'TimerRestarted', { heatId: 'h1' });
+    expect(timer(log)).toMatchObject({ startedAt: T1, pausedAt: null, pausedTotalMs: 0 });
+  });
+
+  it('M13: Timer verschiedener Durchgänge sind unabhängig', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 1_000, 'HeatStarted', { heatId: 'h2', durationMs: 600_000 });
+    log.addAt(H + 10_000, 'TimerPaused', { heatId: 'h1' });
+    expect(timer(log, 'h2')).toEqual({
+      durationMs: 600_000,
+      startedAt: H + 1_000,
+      pausedAt: null,
+      pausedTotalMs: 0,
+    });
+  });
+});
+
+describe('TablesSwapped ordnet die Tische eines Durchgangs um (M15, SPEC Tische und Durchgänge)', () => {
+  const build = () => {
+    const log = new EventLog();
+    created(log);
+    const teams = ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'];
+    for (const t of teams) {
+      log.add('TeamAdded', { teamId: t, name: `Team ${t}`, players: [`Spieler ${t}`] });
+    }
+    log.add('TableCountSet', { tableCount: 3 });
+    const m = (id: string, position: number, a: string, b: string): Match => ({
+      ...groupMatch(id, 'A', a, b),
+      position,
+    });
+    log.add('TournamentStarted', {
+      groups: [{ id: 'A', teamIds: teams }],
+      advancersPerGroup: 1,
+      matches: [
+        m('m1', 1, 't1', 't2'),
+        m('m2', 2, 't3', 't4'),
+        m('m3', 3, 't5', 't6'),
+        m('m4', 4, 't7', 't8'),
+      ],
+      heats: [
+        { id: 'h1', phase: 'group', round: 1, index: 1, matchIds: ['m1', 'm2', 'm3'] },
+        { id: 'h2', phase: 'group', round: 1, index: 2, matchIds: ['m4'] },
+      ],
+    });
+    return log;
+  };
+  const order = (log: EventLog, heatId: string) =>
+    replay(log.events).heats.find((h) => h.id === heatId)?.matchIds;
+
+  it('M15: Tisch 1 ↔ 3 bei [m1, m2, m3] → [m3, m2, m1]; andere Durchgänge unverändert', () => {
+    const log = build();
+    log.add('TablesSwapped', { heatId: 'h1', tableA: 1, tableB: 3 });
+    expect(order(log, 'h1')).toEqual(['m3', 'm2', 'm1']);
+    expect(order(log, 'h2')).toEqual(['m4']);
+  });
+
+  it('M15/M19: aufgehobenes TablesSwapped → ursprüngliche Reihenfolge', () => {
+    const log = build();
+    const sw = log.add('TablesSwapped', { heatId: 'h1', tableA: 1, tableB: 3 });
+    log.undo(sw.id);
+    expect(order(log, 'h1')).toEqual(['m1', 'm2', 'm3']);
   });
 });

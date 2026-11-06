@@ -6,7 +6,6 @@ import { markUndone } from './undo/effective.js';
 
 export const initialState = (): TournamentState => ({
   version: 0,
-  created: false,
   name: '',
   createdAt: null,
   settings: mergeSettings(DEFAULT_SETTINGS, {}),
@@ -37,7 +36,6 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
     case 'TournamentCreated':
       return {
         ...s,
-        created: true,
         name: e.payload.name,
         createdAt: e.at,
         settings: mergeSettings(e.payload.settings, {}),
@@ -116,8 +114,8 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
       return { ...s, heats };
     }
     case 'HeatStarted': {
-      const { heatId, durationMs, startedAt } = e.payload;
-      const timer = { durationMs, startedAt, pausedAt: null, pausedTotalMs: 0 };
+      const { heatId, durationMs } = e.payload;
+      const timer = { durationMs, startedAt: e.at, pausedAt: null, pausedTotalMs: 0 };
       return { ...s, timers: { ...s.timers, [heatId]: timer } };
     }
     case 'TimerPaused': {
@@ -125,7 +123,7 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
       if (!t || t.pausedAt !== null) return s;
       return {
         ...s,
-        timers: { ...s.timers, [e.payload.heatId]: { ...t, pausedAt: e.payload.pausedAt } },
+        timers: { ...s.timers, [e.payload.heatId]: { ...t, pausedAt: e.at } },
       };
     }
     case 'TimerResumed': {
@@ -134,7 +132,7 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
       const resumed = {
         ...t,
         pausedAt: null,
-        pausedTotalMs: t.pausedTotalMs + (e.payload.resumedAt - t.pausedAt),
+        pausedTotalMs: t.pausedTotalMs + (e.at - t.pausedAt),
       };
       return { ...s, timers: { ...s.timers, [e.payload.heatId]: resumed } };
     }
@@ -147,7 +145,7 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
     case 'TimerRestarted': {
       const t = s.timers[e.payload.heatId];
       if (!t) return s;
-      const restarted = { ...t, startedAt: e.payload.startedAt, pausedAt: null, pausedTotalMs: 0 };
+      const restarted = { ...t, startedAt: e.at, pausedAt: null, pausedTotalMs: 0 };
       return { ...s, timers: { ...s.timers, [e.payload.heatId]: restarted } };
     }
     case 'ResultRecorded': {

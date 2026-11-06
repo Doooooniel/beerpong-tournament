@@ -22,7 +22,7 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [ ] Validierung Gruppen × Weiterkommende = 2^k (M10)
 - [ ] KO-Baum Über-Kreuz, zufällige Freilose, Platz 3 optional (M11, S04); Abhängigkeit: HeatStarted berechneter KO-Durchgänge ← Ergebnisse der Quellpartien (ADR 026)
 - [ ] KO-Regeln: kein `draw`, Zeitlimit je Stufe, HF/Finale ohne Limit (M12, M14)
-- [ ] Timer-Mathematik + Warnstufen (M13, S03)
+- [ ] Timer-Mathematik + Warnstufen (M13, S03); klären: behält restartTimer eine vorherige Verlängerung?
 
 ## M4 server
 - [ ] Drizzle-Schema + Migration, Event-Store mit Transaktion

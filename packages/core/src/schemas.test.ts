@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CommandSchema, DEFAULT_SETTINGS, DomainEventSchema } from './index.js';
+import { CommandSchema, DEFAULT_SETTINGS, DomainEventSchema, MatchSchema } from './index.js';
 
 const parses = (value: unknown): boolean => CommandSchema.safeParse(value).success;
 const parsesEvent = (value: unknown): boolean => DomainEventSchema.safeParse(value).success;
@@ -192,5 +192,43 @@ describe('DomainEventSchema (ARCHITECTURE → Ereignisse)', () => {
 
   it('M19: undoes ist nur bei Undone erlaubt', () => {
     expect(parsesEvent({ ...created, undoes: 'e0' })).toBe(false);
+  });
+
+  it('M12/Architekturregel 6: HeatStarted mit zusätzlichem startedAt wird abgelehnt (Zeit = at)', () => {
+    const heatStarted = {
+      id: 'e10',
+      seq: 10,
+      type: 'HeatStarted',
+      v: 1,
+      at: 1_700_000_000_000,
+      payload: { heatId: 'h1', durationMs: 900_000 },
+    };
+    expect(parsesEvent(heatStarted)).toBe(true);
+    expect(parsesEvent({ ...heatStarted, payload: { ...heatStarted.payload, startedAt: 1 } })).toBe(
+      false,
+    );
+  });
+});
+
+describe('MatchSchema (M06/M11)', () => {
+  const match = {
+    id: 'm1',
+    phase: 'group',
+    round: 1,
+    position: 1,
+    groupId: 'A',
+    a: { teamId: 't1' },
+    b: { teamId: 't2' },
+    bye: false,
+  };
+
+  it('M06: Partie mit position wird akzeptiert', () => {
+    expect(MatchSchema.safeParse(match).success).toBe(true);
+  });
+
+  it('M06/M11: Partie ohne position wird abgelehnt', () => {
+    const { position: _position, ...withoutPosition } = match;
+    expect(_position).toBe(1);
+    expect(MatchSchema.safeParse(withoutPosition).success).toBe(false);
   });
 });

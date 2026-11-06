@@ -3,7 +3,6 @@ import { IdSchema } from '../domain/schemas.js';
 import { eventSchema } from './envelope.js';
 
 const heat = { heatId: IdSchema };
-const timestamp = z.number().int().nonnegative();
 const table = z.number().int().positive();
 
 export const TablesSwappedSchema = eventSchema(
@@ -12,26 +11,16 @@ export const TablesSwappedSchema = eventSchema(
   z.object({ ...heat, tableA: table, tableB: table }).strict(),
 );
 
-/** Timer-Werte nach Architekturregel 6; `durationMs: null` = ohne Zeitlimit. */
+/** Zeitpunkte der Timer-Ereignisse = Ereignis-`at`. `durationMs: null` = ohne Zeitlimit. */
 export const HeatStartedSchema = eventSchema(
   'HeatStarted',
   1,
-  z
-    .object({ ...heat, durationMs: z.number().int().positive().nullable(), startedAt: timestamp })
-    .strict(),
+  z.object({ ...heat, durationMs: z.number().int().positive().nullable() }).strict(),
 );
 
-export const TimerPausedSchema = eventSchema(
-  'TimerPaused',
-  1,
-  z.object({ ...heat, pausedAt: timestamp }).strict(),
-);
+export const TimerPausedSchema = eventSchema('TimerPaused', 1, z.object(heat).strict());
 
-export const TimerResumedSchema = eventSchema(
-  'TimerResumed',
-  1,
-  z.object({ ...heat, resumedAt: timestamp }).strict(),
-);
+export const TimerResumedSchema = eventSchema('TimerResumed', 1, z.object(heat).strict());
 
 export const TimerExtendedSchema = eventSchema(
   'TimerExtended',
@@ -39,11 +28,7 @@ export const TimerExtendedSchema = eventSchema(
   z.object({ ...heat, byMs: z.number().int().positive() }).strict(),
 );
 
-export const TimerRestartedSchema = eventSchema(
-  'TimerRestarted',
-  1,
-  z.object({ ...heat, startedAt: timestamp }).strict(),
-);
+export const TimerRestartedSchema = eventSchema('TimerRestarted', 1, z.object(heat).strict());
 
 export type TablesSwapped = z.infer<typeof TablesSwappedSchema>;
 export type HeatStarted = z.infer<typeof HeatStartedSchema>;

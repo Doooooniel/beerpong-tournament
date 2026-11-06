@@ -29,8 +29,10 @@ export const MatchSchema = z
   .object({
     id: IdSchema,
     phase: PhaseSchema,
-    /** Gruppenphase: Spieltag 1..n. KO: Position im Baum innerhalb der Stufe (1..n). */
+    /** Runde: Gruppenphase = Spieltag 1..n; KO = 1 (die Stufe steht in `phase`). */
     round: z.number().int().positive(),
+    /** Reihenfolge innerhalb der Runde: Gruppe = Partie im Spieltag, KO = Platz im Baum (1..n). */
+    position: z.number().int().positive(),
     groupId: IdSchema.nullable(),
     a: SlotSchema,
     b: SlotSchema,
