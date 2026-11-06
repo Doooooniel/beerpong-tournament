@@ -123,6 +123,7 @@ PlayoffRecorded.payload = { groupId: string, tiedTeamIds: string[], winnerTeamId
 - Partien einer Runde → Durchgänge à `tableCount` Partien, in Reihenfolge Gruppe A, B, … .
 - Tischnummer 1..n innerhalb des Durchgangs. Admin darf vor Start tauschen.
 - Admin startet jeden Durchgang manuell. Ein Durchgang kann erst gestartet werden, wenn der vorherige Durchgang derselben Runde `finished` ist.
+- Ergebnisse können nur für Partien eines gestarteten Durchgangs erfasst werden (Fehler `HEAT_NOT_STARTED`); das Adminpanel bietet die Eingabe nur dort an. Freilos-Sieger im KO stehen ohne Ergebnis fest.
 
 **Status (abgeleitet, nie gespeichert)**
 
