@@ -1,8 +1,10 @@
 import type { Timer } from '../domain/types.js';
 
 /** SPEC → Timer. null = ohne Zeitlimit. Kann negativ werden (abgelaufen). */
-export const remainingMs = (_timer: Timer, _now: number): number | null => {
-  throw new Error('not implemented');
+export const remainingMs = (timer: Timer, now: number): number | null => {
+  if (timer.durationMs === null) return null;
+  const pausedNow = timer.pausedAt === null ? 0 : now - timer.pausedAt;
+  return timer.durationMs - (now - timer.startedAt - timer.pausedTotalMs - pausedNow);
 };
 
 export type TimerStage =
@@ -15,11 +17,13 @@ export type TimerStage =
  * S03: Warnstufe = kleinste Schwelle ≥ remaining (z. B. 45 s bei [300000, 60000, 30000] → 60000);
  * remaining ≤ 0 → expired.
  */
-export const timerStage = (
-  _remaining: number | null,
-  _warningsMs: readonly number[],
-): TimerStage => {
-  throw new Error('not implemented');
+export const timerStage = (remaining: number | null, warningsMs: readonly number[]): TimerStage => {
+  if (remaining === null) return { kind: 'unlimited' };
+  if (remaining <= 0) return { kind: 'expired' };
+  const reached = warningsMs.filter((t) => t >= remaining);
+  return reached.length === 0
+    ? { kind: 'normal' }
+    : { kind: 'warning', thresholdMs: Math.min(...reached) };
 };
 
 export interface TimerAlarm {
@@ -34,9 +38,15 @@ export interface TimerAlarm {
  * Timers, aufsteigend nach `at`, nur `at > now`. Pausiert oder ohne Limit → [].
  */
 export const upcomingAlarms = (
-  _timer: Timer,
-  _now: number,
-  _warningsMs: readonly number[],
+  timer: Timer,
+  now: number,
+  warningsMs: readonly number[],
 ): TimerAlarm[] => {
-  throw new Error('not implemented');
+  const remaining = remainingMs(timer, now);
+  if (remaining === null || remaining <= 0 || timer.pausedAt !== null) return [];
+  const warnings: TimerAlarm[] = [...new Set(warningsMs)]
+    .filter((t) => t > 0 && t < remaining)
+    .sort((x, y) => y - x)
+    .map((t) => ({ at: now + remaining - t, kind: 'warning', thresholdMs: t }));
+  return [...warnings, { at: now + remaining, kind: 'expired' }];
 };

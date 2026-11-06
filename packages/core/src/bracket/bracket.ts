@@ -51,11 +51,35 @@ export const buildBracket = (
 };
 
 /** Team in einem Slot, sobald feststeht (Team, Sieger/Verlierer mit Ergebnis, Freilos-Sieger). */
-export const resolveSlot = (_state: TournamentState, _slot: Slot): TeamId | null => {
-  throw new Error('not implemented');
+export const resolveSlot = (state: TournamentState, slot: Slot): TeamId | null => {
+  if (slot === null) return null;
+  if ('teamId' in slot) return slot.teamId;
+  if ('winnerOf' in slot) return winnerOf(state, slot.winnerOf);
+  return loserOf(state, slot.loserOf);
 };
 
+/** Beide Teams einer Partie, sobald feststehend (Freilos-Seite = null). */
+export const teamsOf = (state: TournamentState, match: Match): [TeamId | null, TeamId | null] => [
+  resolveSlot(state, match.a),
+  resolveSlot(state, match.b),
+];
+
 /** Sieger einer Partie: aus Ergebnis oder sofort bei Freilos (M14: kein draw im KO). */
-export const winnerOf = (_state: TournamentState, _matchId: MatchId): TeamId | null => {
-  throw new Error('not implemented');
+export const winnerOf = (state: TournamentState, matchId: MatchId): TeamId | null => {
+  const match = state.matches.find((m) => m.id === matchId);
+  if (!match) return null;
+  if (match.bye) {
+    const [a, b] = teamsOf(state, match);
+    return a ?? b;
+  }
+  return state.results[matchId]?.winnerTeamId ?? null;
+};
+
+/** Verlierer einer gespielten Partie (Spiel um Platz 3). */
+export const loserOf = (state: TournamentState, matchId: MatchId): TeamId | null => {
+  const match = state.matches.find((m) => m.id === matchId);
+  const winner = winnerOf(state, matchId);
+  if (!match || match.bye || winner === null) return null;
+  const [a, b] = teamsOf(state, match);
+  return winner === a ? b : a;
 };

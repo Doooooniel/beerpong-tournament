@@ -1,5 +1,4 @@
 import type { CommandOf } from './commands/index.js';
-import { domainError, type DomainError, type DomainErrorCode } from './domain/errors.js';
 import {
   DEFAULT_SETTINGS,
   groupIds,
@@ -7,21 +6,15 @@ import {
   STRUCTURAL_SETTINGS,
 } from './domain/settings.js';
 import type { Decide, DecideContext, LogEntry, Team, TournamentState } from './domain/types.js';
-import type { DomainEventType, EventOf, NewEvent } from './events/index.js';
+import type { NewEvent } from './events/index.js';
 import { apply } from './apply.js';
-import { err, ok, type Result } from './result.js';
+import { ok } from './result.js';
+import { event, fail, notStarted, type Decision } from './decision.js';
+import { randomizeGroups, startTournament } from './schedule/start.js';
+import { timerCommand } from './timer/commands.js';
+import { startHeat, swapTables } from './schedule/heat-commands.js';
+import { recordPlayoff, recordResult } from './standings/commands.js';
 import { dependsOn, findDependents, indexSchedule } from './undo/dependents.js';
-
-type Decision = Result<NewEvent[], DomainError>;
-
-const fail = (code: DomainErrorCode, message: string, dependents?: string[]): Decision =>
-  err(domainError(code, message, dependents));
-
-const event = <T extends Exclude<DomainEventType, 'Undone'>>(
-  ctx: DecideContext,
-  type: T,
-  payload: EventOf<T>['payload'],
-): Decision => ok([{ id: ctx.newId(), type, v: 1, at: ctx.now, payload } as NewEvent]);
 
 const normalize = (name: string): string => name.trim().toLowerCase();
 
@@ -36,11 +29,6 @@ const isUndoable = (entry: LogEntry): boolean =>
   entry.event.type !== 'Undone' &&
   entry.event.type !== 'BeamerModeSet' &&
   entry.event.type !== 'BeamerViewSet';
-
-const notStarted = (state: TournamentState): Decision | null =>
-  state.phase === 'setup'
-    ? null
-    : fail('TOURNAMENT_ALREADY_STARTED', 'Not allowed after the tournament has started.');
 
 const updateSettings = (
   state: TournamentState,
@@ -204,17 +192,23 @@ export const decide: Decide = (state, command, ctx) => {
     case 'undoEvent':
       return undoEvent(state, command.eventId, command.confirm === true, ctx);
     case 'randomizeGroups':
-      return notStarted(state) ?? fail('NOT_IMPLEMENTED', 'Comes with M3.');
+      return randomizeGroups(state, ctx);
     case 'startTournament':
-    case 'advancePhase':
-    case 'swapTables':
-    case 'startHeat':
+      return startTournament(state, ctx);
     case 'pauseTimer':
     case 'resumeTimer':
     case 'extendTimer':
     case 'restartTimer':
+      return timerCommand(state, command, ctx);
+    case 'advancePhase':
+      return fail('NOT_IMPLEMENTED', 'Comes with the knockout rules.');
+    case 'swapTables':
+      return swapTables(state, command, ctx);
+    case 'startHeat':
+      return startHeat(state, command, ctx);
     case 'recordResult':
+      return recordResult(state, command, ctx);
     case 'recordPlayoff':
-      return fail('NOT_IMPLEMENTED', 'Comes with M3.');
+      return recordPlayoff(state, command, ctx);
   }
 };

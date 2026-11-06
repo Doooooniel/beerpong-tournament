@@ -284,10 +284,17 @@ function startedSession(beforeStart?: (s: Session) => void) {
         bye: false,
       },
     ];
+    // state.heats-Reihenfolge = Spielreihenfolge (Regel e): HF, ggf. Platz 3, dann Finale.
     const koHeats: Heat[] = [
       { id: KO_HEAT, phase: 'semifinal', round: 1, index: 1, matchIds: ['SF1', 'SF2'] },
-      { id: FINAL_HEAT, phase: 'final', round: 1, index: 1, matchIds: ['FINAL'] },
     ];
+    const finalHeat: Heat = {
+      id: FINAL_HEAT,
+      phase: 'final',
+      round: 1,
+      index: 1,
+      matchIds: ['FINAL'],
+    };
     if (thirdPlace) {
       ko.push({
         id: 'P3',
@@ -301,6 +308,7 @@ function startedSession(beforeStart?: (s: Session) => void) {
       });
       koHeats.push({ id: P3_HEAT, phase: 'thirdPlace', round: 1, index: 1, matchIds: ['P3'] });
     }
+    koHeats.push(finalHeat);
     return s.push('PhaseAdvanced', { matches: ko, heats: koHeats });
   };
 
@@ -558,7 +566,7 @@ describe('Regel d: Timer-Kette eines Durchgangs (M13, M19)', () => {
     const sw1 = s.push('TablesSwapped', { heatId: h1, tableA: 1, tableB: 2 });
     const tr1 = s.push('TimerResumed', { heatId: h1 });
     const te1 = s.push('TimerExtended', { heatId: h1, byMs: 60_000 });
-    const trs1 = s.push('TimerRestarted', { heatId: h1 });
+    const trs1 = s.push('TimerRestarted', { heatId: h1, durationMs: GROUP_MS });
     const tp1b = s.push('TimerPaused', { heatId: h1 });
     return { s, hs1, tp1, hs2, tp2, sw1, tr1, te1, trs1, tp1b };
   };
@@ -603,22 +611,30 @@ describe('Regeln e und i: Durchgänge und ihre Ergebnisse (SPEC Tische und Durch
     return { s, hs11, rA1, rA2, hs12, tp12, rB1, rB2, hs21 };
   };
 
-  it('M19/e: Ergebnis aus Durchgang (r1, 1) → HeatStarted (r1, 2), transitiv dessen Timer und Ergebnisse', () => {
-    const { s, rA1, rA2, hs12, tp12, rB1, rB2 } = setup();
-    expect(s.deps(rA1)).toEqual(ids(hs12, tp12, rB1, rB2));
-    expect(s.deps(rA2)).toEqual(ids(hs12, tp12, rB1, rB2));
+  it('M19/e: Ergebnis aus Durchgang (r1, 1) → HeatStarted (r1, 2), transitiv dessen Timer, Ergebnisse und (r2, 1)', () => {
+    const { s, rA1, rA2, hs12, tp12, rB1, rB2, hs21 } = setup();
+    expect(s.deps(rA1)).toEqual(ids(hs12, tp12, rB1, rB2, hs21));
+    expect(s.deps(rA2)).toEqual(ids(hs12, tp12, rB1, rB2, hs21));
   });
 
-  it('M19/e: erster Durchgang einer neuen Runde hängt nicht von der Vorrunde ab', () => {
-    const { s, rB1, rB2 } = setup();
-    expect(s.deps(rB1)).toEqual([]);
-    expect(s.deps(rB2)).toEqual([]);
+  it('M19/e: erster Durchgang einer neuen Runde hängt vom letzten Durchgang der Vorrunde ab (streng nacheinander)', () => {
+    const { s, rB1, rB2, hs21 } = setup();
+    expect(s.deps(rB1)).toEqual([hs21.id]);
+    expect(s.deps(rB2)).toEqual([hs21.id]);
   });
 
-  it('M19/i: Ergebnisse hängen vom HeatStarted ihres Durchgangs ab (transitiv bis Durchgang 2)', () => {
+  it('M19/e: nur der unmittelbar vorherige Durchgang zählt, nicht ältere', () => {
+    const { s, rA1, hs12, tp12, rB1, rB2, hs21 } = setup();
+    // (r2, 1) hängt direkt nur von (r1, 2) ab; von (r1, 1) nur transitiv über HeatStarted (r1, 2)
+    expect(s.deps(rA1)).toEqual(ids(hs12, tp12, rB1, rB2, hs21));
+    s.pushUndone(hs12.id, ids(tp12, rB1, rB2, hs21));
+    expect(s.deps(rA1)).toEqual([]);
+  });
+
+  it('M19/i: Ergebnisse hängen vom HeatStarted ihres Durchgangs ab (transitiv bis Runde 2)', () => {
     const { s, hs11, rA1, rA2, hs12, tp12, rB1, rB2, hs21 } = setup();
-    expect(s.deps(hs11)).toEqual(ids(rA1, rA2, hs12, tp12, rB1, rB2));
-    expect(s.deps(hs12)).toEqual(ids(tp12, rB1, rB2));
+    expect(s.deps(hs11)).toEqual(ids(rA1, rA2, hs12, tp12, rB1, rB2, hs21));
+    expect(s.deps(hs12)).toEqual(ids(tp12, rB1, rB2, hs21));
     expect(s.deps(hs21)).toEqual([]);
   });
 
@@ -633,17 +649,17 @@ describe('Regeln e und i: Durchgänge und ihre Ergebnisse (SPEC Tische und Durch
   });
 
   it('M19/i: undoEvent auf HeatStarted ohne confirm → UNDO_HAS_DEPENDENTS mit Ergebnissen des Durchgangs', () => {
-    const { s, hs11, rA1, rA2, hs12, tp12, rB1, rB2 } = setup();
+    const { s, hs11, rA1, rA2, hs12, tp12, rB1, rB2, hs21 } = setup();
     const error = expectError(
       s.decide({ type: 'undoEvent', eventId: hs11.id }),
       'UNDO_HAS_DEPENDENTS',
     );
-    expect(error.dependents).toEqual(ids(rA1, rA2, hs12, tp12, rB1, rB2));
+    expect(error.dependents).toEqual(ids(rA1, rA2, hs12, tp12, rB1, rB2, hs21));
   });
 
   it('M19/e: undoEvent auf das Ergebnis ohne confirm → UNDO_HAS_DEPENDENTS; mit confirm → Kaskade', () => {
-    const { s, rA1, rA2, hs12, tp12, rB1, rB2 } = setup();
-    const chain = ids(hs12, tp12, rB1, rB2);
+    const { s, rA1, rA2, hs12, tp12, rB1, rB2, hs21 } = setup();
+    const chain = ids(hs12, tp12, rB1, rB2, hs21);
     const error = expectError(
       s.decide({ type: 'undoEvent', eventId: rA1.id }),
       'UNDO_HAS_DEPENDENTS',
@@ -658,6 +674,7 @@ describe('Regeln e und i: Durchgänge und ihre Ergebnisse (SPEC Tische und Durch
     expect(s.state.results[groupMatchId('B', 1, 1)]).toBeUndefined();
     expect(s.state.results[groupMatchId('B', 1, 2)]).toBeUndefined();
     expect(s.state.timers[groupHeatId(1, 2)]).toBeUndefined();
+    expect(s.state.timers[groupHeatId(2, 1)]).toBeUndefined();
     expect(s.state.timers[groupHeatId(1, 1)]).toBeDefined();
     expect(s.isUndone(rA2.id)).toBe(false);
   });
@@ -680,8 +697,15 @@ describe('Regel f: PhaseAdvanced hängt von Gruppenergebnissen, Stechen und thir
     expect(s.deps(sound)).toEqual([]);
     expect(s.deps(po)).toEqual([pa.id]);
     expect(s.deps(group.result(groupMatchId('A', 1, 1)))).toContain(po.id);
-    // Gruppe B liegt in Durchgang 2 jeder Runde: kein Nachfolger-Durchgang, kein Stechen von B
-    expect(s.deps(group.result(groupMatchId('B', 1, 1)))).toEqual([pa.id]);
+    // Letzter Gruppendurchgang (r3, 2): kein gestarteter Nachfolger-Durchgang, kein Stechen von B
+    expect(s.deps(group.result(groupMatchId('B', 3, 1)))).toEqual([pa.id]);
+    // Regel e über Rundengrenzen: (r1, 2) → HeatStarted (r2, 1) → … bis Runde 3, Stechen A, PhaseAdvanced
+    const fromR21 = group.events.indexOf(group.heatStart(groupHeatId(2, 1)));
+    expect(s.deps(group.result(groupMatchId('B', 1, 1)))).toEqual([
+      ...ids(...group.events.slice(fromR21)),
+      po.id,
+      pa.id,
+    ]);
   });
 
   it('M19/f: SettingsUpdated { thirdPlaceMatch } vor dem Start → nur PhaseAdvanced, nicht TournamentStarted', () => {
@@ -736,9 +760,19 @@ describe('Regel g: Stechen hängt von den Ergebnissen der Gruppe und früheren S
     }
   });
 
-  it('M19/g: Ergebnis der Gruppe B → nur Stechen der Gruppe B, keins von A', () => {
+  it('M19/g: Ergebnis der Gruppe B im letzten Durchgang → nur Stechen der Gruppe B, keins von A', () => {
     const { s, rb, pb } = setup();
-    for (const r of rb) expect(s.deps(r)).toEqual([pb.id]);
+    for (const r of rb) expect(s.deps(r)).toContain(pb.id);
+    const lastRound = rb.filter((r) => r.payload.matchId.startsWith('B-r3-'));
+    expect(lastRound).toHaveLength(2);
+    for (const r of lastRound) expect(s.deps(r)).toEqual([pb.id]);
+  });
+
+  it('M19/e+g: Ergebnis der Gruppe B aus Runde 1 → über die Durchgangskette auch Stechen von A', () => {
+    const { s, group, pa1, pb, pa2 } = setup();
+    const deps = s.deps(group.result(groupMatchId('B', 1, 1)));
+    expect(deps).toContain(group.heatStart(groupHeatId(2, 1)).id);
+    expect(deps.slice(-3)).toEqual(ids(pa1, pb, pa2));
   });
 
   it('M19/e+i+g: Ergebnis A der Runde 3 → Durchgang B der Runde 3 → dessen Ergebnisse → Stechen', () => {
@@ -769,23 +803,33 @@ describe('Regel g: Stechen hängt von den Ergebnissen der Gruppe und früheren S
 });
 
 describe('Regel h: KO-Ergebnis hängt von den Ergebnissen seiner Quellen ab (M14, M19)', () => {
-  it('M19/h: Halbfinal-Ergebnisse → Platz 3 (loserOf) und Finale (winnerOf)', () => {
-    const { s, sf1, sf2, p3, fin } = knockoutPlayed();
-    expect(s.deps(sf1)).toEqual(ids(p3, fin));
-    expect(s.deps(sf2)).toEqual(ids(p3, fin));
+  it('M19/h+e: Halbfinal-Ergebnisse → Platz 3 (loserOf), Finale (winnerOf) und Platz-3-Durchgang (Regel e)', () => {
+    const { s, sf1, sf2, hsP3, p3, hsF, fin } = knockoutPlayed();
+    expect(s.deps(sf1)).toEqual(ids(hsP3, p3, hsF, fin));
+    expect(s.deps(sf2)).toEqual(ids(hsP3, p3, hsF, fin));
   });
 
-  it('M19/h: Finale und Platz 3 hängen nicht voneinander ab', () => {
-    const { s, p3, fin } = knockoutPlayed();
-    expect(s.deps(p3)).toEqual([]);
+  it('M19/h+e: Finale hängt nur über die Durchgangsfolge (Regel e) vom Platz-3-Ergebnis ab', () => {
+    const { s, p3, hsF, fin } = knockoutPlayed();
+    expect(s.deps(p3)).toEqual(ids(hsF, fin));
     expect(s.deps(fin)).toEqual([]);
   });
 
   it('M19/i: KO-Ergebnisse hängen vom HeatStarted ihres Durchgangs aus PhaseAdvanced ab', () => {
     const { s, hs, sf1, sf2, hsP3, p3, hsF, fin } = knockoutPlayed();
-    expect(s.deps(hs)).toEqual(ids(sf1, sf2, p3, fin));
-    expect(s.deps(hsP3)).toEqual([p3.id]);
+    expect(s.deps(hs)).toEqual(ids(sf1, sf2, hsP3, p3, hsF, fin));
+    expect(s.deps(hsP3)).toEqual(ids(p3, hsF, fin));
     expect(s.deps(hsF)).toEqual([fin.id]);
+  });
+
+  it('M19/e+f: erster KO-Durchgang hängt von den Ergebnissen des letzten Gruppendurchgangs ab', () => {
+    // Regel e (Vorgänger = Durchgang (r3, 2)) und transitiv über PhaseAdvanced (Regel f → c)
+    const { s, group, pa, hs } = knockoutPlayed();
+    for (const k of [1, 2]) {
+      const deps = s.deps(group.result(groupMatchId('B', 3, k)));
+      expect(deps).toContain(pa.id);
+      expect(deps).toContain(hs.id);
+    }
   });
 
   it('M19/c: PhaseAdvanced → KO-Durchgänge und alle KO-Ergebnisse; Beamer, aufgehobene und Undone nicht', () => {
@@ -804,10 +848,11 @@ describe('Transitive Kette: Gruppenergebnis → PhaseAdvanced → KO-Ergebnisse 
     const { s, group, pa, hs, sf1, sf2, hsP3, p3, hsF, fin } = ko;
     const view = s.push('BeamerViewSet', { view: 'podium' });
     const target = group.result(groupMatchId('A', 1, 1));
+    // Regel e über alle Runden: ab HeatStarted (r1, 2) hängt jeder spätere Gruppendurchgang
+    // samt Ergebnissen (Regel i) ab; Ergebnis A-r1-2 (gleicher Durchgang) nicht.
+    const fromR12 = group.events.indexOf(group.heatStart(groupHeatId(1, 2)));
     const chain = ids(
-      group.heatStart(groupHeatId(1, 2)), // Regel e
-      group.result(groupMatchId('B', 1, 1)), // Regel i
-      group.result(groupMatchId('B', 1, 2)),
+      ...group.events.slice(fromR12),
       pa, // Regel f
       hs, // Regel c
       sf1,

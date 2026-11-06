@@ -14,15 +14,15 @@ Jeder Meilenstein endet mit grünem `npm run check`. Checkboxen abhaken, sobald 
 - [x] Undo / Redo über `Undone`, `undo/dependents.ts` (M19, A5)
 
 ## M3 core – Regeln
-- [ ] Gruppenverteilung manuell + zufällig (M05)
-- [ ] Rundenturnier mit Freilosen (M06)
-- [ ] Tische und Durchgänge (M15)
-- [ ] Punkte 3/2/1/0 (M08)
-- [ ] Tiebreaker-Kette mit `rankReason`, Stechen (M09)
-- [ ] Validierung Gruppen × Weiterkommende = 2^k (M10)
+- [x] Gruppenverteilung manuell + zufällig (M05)
+- [x] Rundenturnier mit Freilosen (M06)
+- [x] Tische und Durchgänge (M15)
+- [x] Punkte 3/2/1/0 (M08)
+- [x] Tiebreaker-Kette mit `rankReason`, Stechen (M09)
+- [x] Validierung Gruppen × Weiterkommende = 2^k (M10)
 - [ ] KO-Baum Über-Kreuz, zufällige Freilose, Platz 3 optional (M11, S04); Abhängigkeit: HeatStarted berechneter KO-Durchgänge ← Ergebnisse der Quellpartien (ADR 026)
 - [ ] KO-Regeln: kein `draw`, Zeitlimit je Stufe, HF/Finale ohne Limit (M12, M14)
-- [ ] Timer-Mathematik + Warnstufen (M13, S03); klären: behält restartTimer eine vorherige Verlängerung?
+- [x] Timer-Mathematik + Warnstufen (M13, S03); klären: behält restartTimer eine vorherige Verlängerung?
 
 ## M4 server
 - [ ] Drizzle-Schema + Migration, Event-Store mit Transaktion

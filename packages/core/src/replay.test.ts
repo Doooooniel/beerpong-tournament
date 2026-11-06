@@ -501,8 +501,29 @@ describe('Timer-Werte im Zustand (Architekturregel 6, M12, M13)', () => {
     log.addAt(H + 25_000, 'TimerResumed', { heatId: 'h1' });
     log.addAt(H + 30_000, 'TimerPaused', { heatId: 'h1' });
     const T1 = H + 200_000;
-    log.addAt(T1, 'TimerRestarted', { heatId: 'h1' });
-    expect(timer(log)).toMatchObject({ startedAt: T1, pausedAt: null, pausedTotalMs: 0 });
+    log.addAt(T1, 'TimerRestarted', { heatId: 'h1', durationMs: 900_000 });
+    expect(timer(log)).toEqual({
+      durationMs: 900_000,
+      startedAt: T1,
+      pausedAt: null,
+      pausedTotalMs: 0,
+    });
+  });
+
+  it('M13/SPEC Timer: Neustart nach Verlängerung → durationMs = payload.durationMs (Verlängerung verfällt)', () => {
+    const log = started();
+    log.addAt(H, 'HeatStarted', { heatId: 'h1', durationMs: 900_000 });
+    log.addAt(H + 10_000, 'TimerExtended', { heatId: 'h1', byMs: 60_000 });
+    log.addAt(H + 20_000, 'TimerExtended', { heatId: 'h1', byMs: 30_000 });
+    expect(timer(log)?.durationMs).toBe(990_000);
+    const T1 = H + 50_000;
+    log.addAt(T1, 'TimerRestarted', { heatId: 'h1', durationMs: 900_000 });
+    expect(timer(log)).toEqual({
+      durationMs: 900_000,
+      startedAt: T1,
+      pausedAt: null,
+      pausedTotalMs: 0,
+    });
   });
 
   it('M13: Timer verschiedener Durchgänge sind unabhängig', () => {

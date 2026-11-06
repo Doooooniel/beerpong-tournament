@@ -25,6 +25,8 @@ export interface ScheduleIndex {
   matches: Map<string, Match>;
   heats: Map<string, Heat>;
   heatOfMatch: Map<string, Heat>;
+  /** Unmittelbar vorheriger Durchgang in Spielreihenfolge (streng nacheinander). */
+  previousHeat: Map<string, Heat>;
 }
 
 export const indexSchedule = (log: readonly LogEntry[]): ScheduleIndex => {
@@ -33,14 +35,20 @@ export const indexSchedule = (log: readonly LogEntry[]): ScheduleIndex => {
     matches: new Map(),
     heats: new Map(),
     heatOfMatch: new Map(),
+    previousHeat: new Map(),
   };
-  for (const { event } of log) {
+  let last: Heat | null = null;
+  for (const { event, undone } of log) {
     if (event.type !== 'TournamentStarted' && event.type !== 'PhaseAdvanced') continue;
     for (const m of event.payload.matches) {
       index.matches.set(m.id, m);
       index.creatorOf.set(m.id, event.id);
     }
     for (const h of event.payload.heats) {
+      if (!undone) {
+        if (last) index.previousHeat.set(h.id, last);
+        last = h;
+      }
       index.heats.set(h.id, h);
       index.creatorOf.set(h.id, event.id);
       for (const m of h.matchIds) index.heatOfMatch.set(m, h);
@@ -111,13 +119,10 @@ export const dependsOn = (e: DomainEvent, p: DomainEvent, ix: ScheduleIndex): bo
 
   if (p.type === 'ResultRecorded') {
     const pm = ix.matches.get(p.payload.matchId);
-    // e: Durchgang i hängt von den Ergebnissen des Durchgangs i−1 ab.
+    // e: Durchgang hängt von den Ergebnissen des vorherigen Durchgangs ab (streng nacheinander).
     if (e.type === 'HeatStarted') {
-      const h = ix.heats.get(e.payload.heatId);
-      const ph = ix.heatOfMatch.get(p.payload.matchId);
-      return (
-        !!h && !!ph && ph.phase === h.phase && ph.round === h.round && ph.index === h.index - 1
-      );
+      const previous = ix.previousHeat.get(e.payload.heatId);
+      return !!previous && previous.matchIds.includes(p.payload.matchId);
     }
     // f: KO-Baum hängt von Gruppenergebnissen ab.
     if (e.type === 'PhaseAdvanced') return pm?.phase === 'group';
