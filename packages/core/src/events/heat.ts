@@ -28,7 +28,12 @@ export const TimerExtendedSchema = eventSchema(
   z.object({ ...heat, byMs: z.number().int().positive() }).strict(),
 );
 
-export const TimerRestartedSchema = eventSchema('TimerRestarted', 1, z.object(heat).strict());
+/** Neustart auf die Dauer aus HeatStarted; der Wert steht im Ereignis (Regel 4). */
+export const TimerRestartedSchema = eventSchema(
+  'TimerRestarted',
+  1,
+  z.object({ ...heat, durationMs: z.number().int().positive().nullable() }).strict(),
+);
 
 export type TablesSwapped = z.infer<typeof TablesSwappedSchema>;
 export type HeatStarted = z.infer<typeof HeatStartedSchema>;

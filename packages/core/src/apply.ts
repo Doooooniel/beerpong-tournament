@@ -145,7 +145,12 @@ const reduce = (s: TournamentState, e: DomainEvent): TournamentState => {
     case 'TimerRestarted': {
       const t = s.timers[e.payload.heatId];
       if (!t) return s;
-      const restarted = { ...t, startedAt: e.at, pausedAt: null, pausedTotalMs: 0 };
+      const restarted = {
+        durationMs: e.payload.durationMs,
+        startedAt: e.at,
+        pausedAt: null,
+        pausedTotalMs: 0,
+      };
       return { ...s, timers: { ...s.timers, [e.payload.heatId]: restarted } };
     }
     case 'ResultRecorded': {

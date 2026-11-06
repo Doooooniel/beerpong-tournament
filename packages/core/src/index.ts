@@ -16,3 +16,11 @@ export { apply, initialState } from './apply.js';
 export { replay } from './replay.js';
 /** findDependents(state, targetEventId) → abhängige spätere Ereignis-IDs */
 export { findDependents } from './undo/dependents.js';
+
+// Regeln (M3)
+export * from './schedule/round-robin.js';
+export * from './schedule/groups.js';
+export * from './schedule/heats.js';
+export * from './standings/standings.js';
+export * from './bracket/bracket.js';
+export * from './timer/timer.js';

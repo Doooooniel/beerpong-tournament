@@ -96,7 +96,9 @@ Tiebreaker bei Punktgleichheit von n Teams:
 2. Becherdifferenz (gesamt) – nur wenn `settings.trackCups`.
 3. Sonst `needsPlayoff` – Gruppe ist nicht abgeschlossen, bis ein Stechen-Ergebnis vorliegt.
 
-`rankReason` ∈ `points | headToHead | cupDiff | playoff`.
+`rankReason` ∈ `points | headToHead | cupDiff | playoff | tied`.
+
+- Ein Stechen (`needsPlayoff`) ist nur nötig, wenn der unaufgelöste Gleichstand einen Platz ≤ q (Weiterkommende) berührt. Gleichstände dahinter teilen sich den Platz mit `rankReason: 'tied'`.
 
 **Stechen**
 
@@ -122,7 +124,7 @@ PlayoffRecorded.payload = { groupId: string, tiedTeamIds: string[], winnerTeamId
 
 - Partien einer Runde → Durchgänge à `tableCount` Partien, in Reihenfolge Gruppe A, B, … .
 - Tischnummer 1..n innerhalb des Durchgangs. Admin darf vor Start tauschen.
-- Admin startet jeden Durchgang manuell. Ein Durchgang kann erst gestartet werden, wenn der vorherige Durchgang derselben Runde `finished` ist.
+- Admin startet jeden Durchgang manuell. Durchgänge laufen streng nacheinander: Ein Durchgang kann erst gestartet werden, wenn der vorherige Durchgang (auch über Runden- und Phasengrenzen hinweg) `finished` ist.
 - Ergebnisse können nur für Partien eines gestarteten Durchgangs erfasst werden (Fehler `HEAT_NOT_STARTED`); das Adminpanel bietet die Eingabe nur dort an. Freilos-Sieger im KO stehen ohne Ergebnis fest.
 
 **Status (abgeleitet, nie gespeichert)**
@@ -141,13 +143,14 @@ PlayoffRecorded.payload = { groupId: string, tiedTeamIds: string[], winnerTeamId
   - Verbindliche Beispiele: 2 Gruppen, q=2: `A1–B2`, `B1–A2`. · 4 Gruppen, q=2: `A1–B2`, `C1–D2`, `B1–A2`, `D1–C2`. · 2 Gruppen, q=4: `A1–B4`, `A3–B2`, `B1–A4`, `B3–A2`. · 8 Gruppen, q=1: `A1–B1`, `C1–D1`, `E1–F1`, `G1–H1`. · 1 Gruppe, q=4: `P1–P4`, `P2–P3`.
 - `PhaseAdvanced` (bei Nur-KO `TournamentStarted`) enthält den vollständigen Baum aller Stufen. Spätere Partien verweisen auf ihre Quellen (`winnerOf: matchId`, bei Platz 3 `loserOf: matchId`).
 - Eine KO-Partie ist spielbar, sobald beide Quellen ein Ergebnis haben. Die Durchgänge einer KO-Stufe werden berechnet, sobald alle Partien der Stufe spielbar sind. Ein Freilos-Gewinner gilt sofort als Sieger. `TablesSwapped` wirkt als Überschreibung der berechneten Zuordnung.
-- Nur-KO mit n ≠ 2^k: auf nächste 2^k auffüllen, Freilose zufällig verteilen (Ergebnis im Ereignis gespeichert).
+- Nur-KO: alle Teams werden zufällig auf die Baumplätze gelost; bei n ≠ 2^k auf nächste 2^k auffüllen, Freilose zufällig verteilen, nie zwei Freilose in einer Partie (Ergebnis im Ereignis gespeichert).
 - Zeitlimit je Stufe aus `settings.timerByPhase` (Schlüssel siehe „Einstellungen“); `semifinal`, `thirdPlace`, `final` = `null`.
 
 ### Timer
 
 - Gespeichert: `durationMs | null`, `startedAt`, `pausedAt`, `pausedTotalMs`.
 - remaining = durationMs − (now − startedAt − pausedTotalMs − (pausedAt ? now − pausedAt : 0)).
+- Neustart setzt auf die Dauer aus `HeatStarted` zurück; Verlängerungen verfallen.
 - Warnungen `settings.timerWarningsMs` (Standard `[300000, 60000, 30000]`).
 
 ### Einstellungen
